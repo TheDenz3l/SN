@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto-Resize Textarea Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f9fafb;
+        }
+        
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            color: #1f2937;
+            margin-bottom: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 8px;
+        }
+        
+        .auto-resize-textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.5;
+            resize: none;
+            transition: all 0.2s ease-out;
+            min-height: 2.5rem;
+            box-sizing: border-box;
+        }
+        
+        .auto-resize-textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .char-counter {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 8px;
+            font-size: 12px;
+        }
+        
+        .char-count {
+            color: #6b7280;
+        }
+        
+        .char-count.warning {
+            color: #f59e0b;
+        }
+        
+        .char-count.danger {
+            color: #ef4444;
+        }
+        
+        .remaining {
+            color: #f59e0b;
+        }
+        
+        .demo-text {
+            color: #6b7280;
+            font-size: 14px;
+            margin-bottom: 30px;
+            padding: 15px;
+            background-color: #f3f4f6;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Auto-Resize ISP Task Boxes Test</h1>
+        
+        <div class="demo-text">
+            <strong>Test the enhanced ISP task input boxes:</strong><br>
+            • Type in the textarea below and watch it auto-resize<br>
+            • Character counter updates in real-time<br>
+            • Warning colors appear as you approach the limit<br>
+            • Maximum 500 characters (same as SwiftNotes setup)
+        </div>
+        
+        <div class="form-group">
+            <label for="task1">ISP Task 1</label>
+            <textarea 
+                id="task1" 
+                class="auto-resize-textarea" 
+                placeholder="e.g., Communication goals - verbal requests, social interaction skills, daily living activities, etc."
+                maxlength="500"
+            ></textarea>
+            <div class="char-counter">
+                <span class="char-count" id="count1">0 / 500 characters</span>
+                <span class="remaining" id="remaining1" style="display: none;"></span>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="task2">ISP Task 2</label>
+            <textarea 
+                id="task2" 
+                class="auto-resize-textarea" 
+                placeholder="e.g., Behavioral objectives - attention span, following directions, task completion, etc."
+                maxlength="500"
+            ></textarea>
+            <div class="char-counter">
+                <span class="char-count" id="count2">0 / 500 characters</span>
+                <span class="remaining" id="remaining2" style="display: none;"></span>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="task3">ISP Task 3</label>
+            <textarea 
+                id="task3" 
+                class="auto-resize-textarea" 
+                placeholder="e.g., Self-care skills - personal hygiene, meal preparation, medication management, etc."
+                maxlength="500"
+            ></textarea>
+            <div class="char-counter">
+                <span class="char-count" id="count3">0 / 500 characters</span>
+                <span class="remaining" id="remaining3" style="display: none;"></span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Auto-resize functionality
+        function autoResize(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.max(40, textarea.scrollHeight) + 'px';
+        }
+
+        // Character counter functionality
+        function updateCharCounter(textarea, countElement, remainingElement) {
+            const length = textarea.value.length;
+            const maxLength = 500;
+            
+            countElement.textContent = `${length} / ${maxLength} characters`;
+            
+            // Update colors based on character count
+            if (length > 450) {
+                countElement.className = 'char-count danger';
+            } else if (length > 400) {
+                countElement.className = 'char-count warning';
+            } else {
+                countElement.className = 'char-count';
+            }
+            
+            // Show remaining characters when approaching limit
+            if (length > 400) {
+                remainingElement.textContent = `${maxLength - length} remaining`;
+                remainingElement.style.display = 'inline';
+            } else {
+                remainingElement.style.display = 'none';
+            }
+        }
+
+        // Initialize all textareas
+        for (let i = 1; i <= 3; i++) {
+            const textarea = document.getElementById(`task${i}`);
+            const countElement = document.getElementById(`count${i}`);
+            const remainingElement = document.getElementById(`remaining${i}`);
+            
+            // Auto-resize on input
+            textarea.addEventListener('input', function() {
+                autoResize(this);
+                updateCharCounter(this, countElement, remainingElement);
+            });
+            
+            // Initial resize
+            autoResize(textarea);
+        }
+        
+        // Add some sample text for demonstration
+        setTimeout(() => {
+            const task1 = document.getElementById('task1');
+            task1.value = 'Communication goals - verbal requests and social interaction skills development';
+            autoResize(task1);
+            updateCharCounter(task1, document.getElementById('count1'), document.getElementById('remaining1'));
+        }, 500);
+    </script>
+</body>
+</html>

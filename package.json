@@ -1,0 +1,21 @@
+{
+  "name": "swiftnotes",
+  "version": "1.0.0",
+  "description": "SwiftNotes - AI-powered note-taking application",
+  "scripts": {
+    "start": "node fix-and-start.js",
+    "backend": "node start-backend.js",
+    "test": "node test-fixes.js",
+    "dev": "concurrently \"npm run backend\" \"cd frontend && npm run dev\"",
+    "fix": "node fix-and-start.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.9",
+    "axios": "^1.9.0",
+    "dotenv": "^16.0.0",
+    "node-fetch": "^2.7.0"
+  },
+  "devDependencies": {
+    "concurrently": "^7.6.0"
+  }
+}

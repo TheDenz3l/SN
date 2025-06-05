@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ISP Title Display Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f9fafb;
+        }
+        
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            color: #1f2937;
+            margin-bottom: 20px;
+        }
+        
+        .section {
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+        
+        .section-header {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        
+        @media (min-width: 640px) {
+            .section-header {
+                flex-direction: row;
+                align-items: flex-start;
+                justify-content: space-between;
+            }
+        }
+        
+        .title-container {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .title-row {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        @media (min-width: 640px) {
+            .title-row {
+                flex-direction: row;
+                align-items: center;
+            }
+        }
+        
+        .title-with-button {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+        
+        .section-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: #111827;
+            word-break: break-words;
+            line-height: 1.5;
+        }
+        
+        .expand-button {
+            padding: 4px;
+            color: #9ca3af;
+            background: none;
+            border: none;
+            cursor: pointer;
+            transition: color 0.2s;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        
+        .expand-button:hover {
+            color: #6b7280;
+        }
+        
+        .detail-badge {
+            padding: 4px 8px;
+            font-size: 12px;
+            font-weight: 500;
+            border-radius: 9999px;
+            align-self: flex-start;
+            background-color: #f3f4f6;
+            color: #374151;
+        }
+        
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+        
+        .control-button {
+            padding: 4px;
+            color: #9ca3af;
+            background: none;
+            border: none;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        
+        .control-button:hover {
+            color: #6b7280;
+        }
+        
+        .demo-text {
+            color: #6b7280;
+            font-size: 14px;
+            margin-bottom: 30px;
+            padding: 15px;
+            background-color: #f3f4f6;
+            border-radius: 8px;
+        }
+        
+        .before-after {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        @media (min-width: 768px) {
+            .before-after {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        
+        .comparison-section {
+            padding: 20px;
+            border-radius: 8px;
+            border: 2px solid #e5e7eb;
+        }
+        
+        .comparison-section.before {
+            background-color: #fef2f2;
+            border-color: #fca5a5;
+        }
+        
+        .comparison-section.after {
+            background-color: #f0fdf4;
+            border-color: #86efac;
+        }
+        
+        .comparison-title {
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #374151;
+        }
+        
+        .truncated-title {
+            color: #6b7280;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .full-title {
+            color: #111827;
+            font-size: 14px;
+            font-weight: 500;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 ISP Title Display Enhancement</h1>
+        
+        <div class="demo-text">
+            <strong>Enhancement Overview:</strong><br>
+            • ISP task titles are no longer truncated at 60 characters<br>
+            • Long titles show 80 characters before truncating<br>
+            • Users can expand/collapse long titles with a button<br>
+            • Responsive layout works on all screen sizes<br>
+            • Auto-resizing prompt textareas for better input experience
+        </div>
+        
+        <div class="before-after">
+            <div class="comparison-section before">
+                <h3 class="comparison-title">❌ Before (Truncated at 60 chars)</h3>
+                <div class="truncated-title">
+                    ISP Task: Meal Time Planning and Preparation: Describe 1. The suppo...
+                </div>
+                <p style="margin-top: 10px; font-size: 12px; color: #6b7280;">
+                    Users couldn't see the full task description, making it hard to understand what they're working on.
+                </p>
+            </div>
+            
+            <div class="comparison-section after">
+                <h3 class="comparison-title">✅ After (Expandable Full Titles)</h3>
+                <div class="full-title">
+                    ISP Task: Meal Time Planning and Preparation: Describe 1. The support needed for meal planning, 2. Kitchen safety protocols, 3. Nutritional considerations and dietary restrictions
+                </div>
+                <p style="margin-top: 10px; font-size: 12px; color: #6b7280;">
+                    Full titles are visible with expand/collapse functionality for very long descriptions.
+                </p>
+            </div>
+        </div>
+        
+        <h2 style="margin-bottom: 20px; color: #374151;">Live Examples:</h2>
+        
+        <!-- Short Title Example -->
+        <div class="section">
+            <div class="section-header">
+                <div class="title-container">
+                    <div class="title-row">
+                        <div class="title-with-button">
+                            <h3 class="section-title">ISP Task: Communication goals - verbal requests</h3>
+                        </div>
+                        <span class="detail-badge">detailed</span>
+                    </div>
+                </div>
+                <div class="controls">
+                    <button class="control-button" title="Detail Level Settings">⚙️</button>
+                </div>
+            </div>
+            <p style="color: #6b7280; font-size: 12px;">Short title - no expand button needed</p>
+        </div>
+        
+        <!-- Medium Title Example -->
+        <div class="section">
+            <div class="section-header">
+                <div class="title-container">
+                    <div class="title-row">
+                        <div class="title-with-button">
+                            <h3 class="section-title" id="medium-title">ISP Task: Goal: Chad will shower daily with staff encouragement and verbal prompts to complete all steps...</h3>
+                            <button class="expand-button" onclick="toggleTitle('medium')" title="Show full title">
+                                ⌄
+                            </button>
+                        </div>
+                        <span class="detail-badge">detailed</span>
+                    </div>
+                </div>
+                <div class="controls">
+                    <button class="control-button" title="Detail Level Settings">⚙️</button>
+                </div>
+            </div>
+            <p style="color: #6b7280; font-size: 12px;">Medium title - shows expand button for full content</p>
+        </div>
+        
+        <!-- Long Title Example -->
+        <div class="section">
+            <div class="section-header">
+                <div class="title-container">
+                    <div class="title-row">
+                        <div class="title-with-button">
+                            <h3 class="section-title" id="long-title">ISP Task: Meal Time Planning and Preparation: Describe 1. The support needed for meal...</h3>
+                            <button class="expand-button" onclick="toggleTitle('long')" title="Show full title">
+                                ⌄
+                            </button>
+                        </div>
+                        <span class="detail-badge">detailed</span>
+                    </div>
+                </div>
+                <div class="controls">
+                    <button class="control-button" title="Detail Level Settings">⚙️</button>
+                </div>
+            </div>
+            <p style="color: #6b7280; font-size: 12px;">Long title - click expand to see full description</p>
+        </div>
+        
+        <!-- General Comment Section -->
+        <div class="section">
+            <div class="section-header">
+                <div class="title-container">
+                    <div class="title-row">
+                        <div class="title-with-button">
+                            <h3 class="section-title">General Comment Section</h3>
+                        </div>
+                        <span class="detail-badge">detailed</span>
+                    </div>
+                </div>
+                <div class="controls">
+                    <button class="control-button" title="Detail Level Settings">⚙️</button>
+                    <button class="control-button" style="color: #dc2626;">Remove</button>
+                </div>
+            </div>
+            <p style="color: #6b7280; font-size: 12px;">General comment section with remove option</p>
+        </div>
+    </div>
+
+    <script>
+        const titles = {
+            medium: {
+                collapsed: "ISP Task: Goal: Chad will shower daily with staff encouragement and verbal prompts to complete all steps...",
+                expanded: "ISP Task: Goal: Chad will shower daily with staff encouragement and verbal prompts to complete all steps of personal hygiene routine including washing hair, body, and face"
+            },
+            long: {
+                collapsed: "ISP Task: Meal Time Planning and Preparation: Describe 1. The support needed for meal...",
+                expanded: "ISP Task: Meal Time Planning and Preparation: Describe 1. The support needed for meal planning and grocery shopping, 2. Kitchen safety protocols and proper food handling, 3. Nutritional considerations and dietary restrictions, 4. Cooking techniques and meal preparation skills, 5. Clean-up procedures and kitchen maintenance"
+            }
+        };
+        
+        const expanded = {
+            medium: false,
+            long: false
+        };
+        
+        function toggleTitle(type) {
+            const titleElement = document.getElementById(`${type}-title`);
+            const buttonElement = titleElement.nextElementSibling;
+            
+            expanded[type] = !expanded[type];
+            
+            if (expanded[type]) {
+                titleElement.textContent = titles[type].expanded;
+                buttonElement.textContent = '⌃';
+                buttonElement.title = 'Show less';
+            } else {
+                titleElement.textContent = titles[type].collapsed;
+                buttonElement.textContent = '⌄';
+                buttonElement.title = 'Show full title';
+            }
+        }
+    </script>
+</body>
+</html>

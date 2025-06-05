@@ -1,0 +1,187 @@
+# SwiftNotes Prometheus Alert Rules
+# Critical alerts for production monitoring
+
+groups:
+  - name: swiftnotes.critical
+    rules:
+      # Service Availability Alerts
+      - alert: SwiftNotesBackendDown
+        expr: up{job="swiftnotes-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: backend
+        annotations:
+          summary: "SwiftNotes Backend is down"
+          description: "SwiftNotes backend service has been down for more than 1 minute."
+
+      - alert: SwiftNotesFrontendDown
+        expr: up{job="swiftnotes-frontend"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: frontend
+        annotations:
+          summary: "SwiftNotes Frontend is down"
+          description: "SwiftNotes frontend service has been down for more than 2 minutes."
+
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: redis
+        annotations:
+          summary: "Redis is down"
+          description: "Redis service has been down for more than 1 minute."
+
+      # Performance Alerts
+      - alert: HighResponseTime
+        expr: swiftnotes_response_time_ms > 5000
+        for: 5m
+        labels:
+          severity: warning
+          service: backend
+        annotations:
+          summary: "High response time detected"
+          description: "Average response time is {{ $value }}ms for more than 5 minutes."
+
+      - alert: HighErrorRate
+        expr: rate(swiftnotes_errors_total[5m]) > 0.1
+        for: 3m
+        labels:
+          severity: critical
+          service: backend
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} for more than 3 minutes."
+
+      # Resource Usage Alerts
+      - alert: HighMemoryUsage
+        expr: (swiftnotes_memory_usage_bytes{type="heap_used"} / swiftnotes_memory_usage_bytes{type="heap_total"}) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          service: backend
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value | humanizePercentage }} for more than 5 minutes."
+
+      - alert: HighCPUUsage
+        expr: rate(process_cpu_seconds_total[5m]) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+          service: backend
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value | humanizePercentage }} for more than 10 minutes."
+
+  - name: swiftnotes.business
+    rules:
+      # Business Logic Alerts
+      - alert: LowAIGenerationSuccess
+        expr: (rate(swiftnotes_ai_generation_success_total[10m]) / rate(swiftnotes_ai_generation_total[10m])) < 0.95
+        for: 5m
+        labels:
+          severity: warning
+          service: ai
+        annotations:
+          summary: "Low AI generation success rate"
+          description: "AI generation success rate is {{ $value | humanizePercentage }} for more than 5 minutes."
+
+      - alert: HighAIGenerationLatency
+        expr: swiftnotes_ai_generation_duration_seconds > 30
+        for: 3m
+        labels:
+          severity: warning
+          service: ai
+        annotations:
+          summary: "High AI generation latency"
+          description: "AI generation taking {{ $value }}s for more than 3 minutes."
+
+      - alert: RateLimitExceeded
+        expr: increase(swiftnotes_rate_limit_exceeded_total[5m]) > 100
+        for: 2m
+        labels:
+          severity: warning
+          service: backend
+        annotations:
+          summary: "Rate limit frequently exceeded"
+          description: "Rate limit exceeded {{ $value }} times in the last 5 minutes."
+
+      - alert: DatabaseConnectionIssues
+        expr: swiftnotes_database_connection_errors_total > 0
+        for: 1m
+        labels:
+          severity: critical
+          service: database
+        annotations:
+          summary: "Database connection issues"
+          description: "Database connection errors detected: {{ $value }} errors."
+
+  - name: swiftnotes.infrastructure
+    rules:
+      # Infrastructure Alerts
+      - alert: DiskSpaceHigh
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) < 0.1
+        for: 5m
+        labels:
+          severity: critical
+          service: infrastructure
+        annotations:
+          summary: "Low disk space"
+          description: "Disk space usage is above 90% for more than 5 minutes."
+
+      - alert: LoadAverageHigh
+        expr: node_load1 > 2
+        for: 10m
+        labels:
+          severity: warning
+          service: infrastructure
+        annotations:
+          summary: "High load average"
+          description: "Load average is {{ $value }} for more than 10 minutes."
+
+      - alert: TooManyOpenFiles
+        expr: process_open_fds / process_max_fds > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          service: backend
+        annotations:
+          summary: "Too many open files"
+          description: "Open file descriptors usage is {{ $value | humanizePercentage }}."
+
+  - name: swiftnotes.security
+    rules:
+      # Security Alerts
+      - alert: SuspiciousActivity
+        expr: increase(swiftnotes_suspicious_requests_total[5m]) > 50
+        for: 1m
+        labels:
+          severity: critical
+          service: security
+        annotations:
+          summary: "Suspicious activity detected"
+          description: "{{ $value }} suspicious requests detected in the last 5 minutes."
+
+      - alert: AuthenticationFailures
+        expr: increase(swiftnotes_auth_failures_total[5m]) > 20
+        for: 2m
+        labels:
+          severity: warning
+          service: security
+        annotations:
+          summary: "High authentication failure rate"
+          description: "{{ $value }} authentication failures in the last 5 minutes."
+
+      - alert: UnauthorizedAccess
+        expr: increase(swiftnotes_unauthorized_access_total[5m]) > 10
+        for: 1m
+        labels:
+          severity: critical
+          service: security
+        annotations:
+          summary: "Unauthorized access attempts"
+          description: "{{ $value }} unauthorized access attempts in the last 5 minutes."

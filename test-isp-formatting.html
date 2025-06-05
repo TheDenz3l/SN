@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ISP Title Formatting Enhancement</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f9fafb;
+            line-height: 1.6;
+        }
+        
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            color: #1f2937;
+            margin-bottom: 20px;
+        }
+        
+        .demo-text {
+            color: #6b7280;
+            font-size: 14px;
+            margin-bottom: 30px;
+            padding: 15px;
+            background-color: #f3f4f6;
+            border-radius: 8px;
+        }
+        
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        @media (min-width: 768px) {
+            .comparison {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        
+        .before, .after {
+            padding: 20px;
+            border-radius: 8px;
+            border: 2px solid;
+        }
+        
+        .before {
+            background-color: #fef2f2;
+            border-color: #fca5a5;
+        }
+        
+        .after {
+            background-color: #f0fdf4;
+            border-color: #86efac;
+        }
+        
+        .comparison-title {
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #374151;
+        }
+        
+        .example-section {
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+            background: white;
+        }
+        
+        .section-header {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        
+        .isp-task-badge {
+            font-size: 12px;
+            font-weight: 600;
+            color: #2563eb;
+            background-color: #eff6ff;
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            align-self: flex-start;
+        }
+        
+        .isp-task-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: #111827;
+            line-height: 1.5;
+            word-spacing: 0.1em;
+            letter-spacing: 0.01em;
+            margin-top: 8px;
+        }
+        
+        .old-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: #6b7280;
+            line-height: 1.4;
+        }
+        
+        .formatting-rules {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .rule-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .rule-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .rule-list li:last-child {
+            border-bottom: none;
+        }
+        
+        .rule-example {
+            font-family: 'Courier New', monospace;
+            background: #f1f5f9;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        
+        .highlight {
+            background: #fef3c7;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 ISP Title Formatting Enhancement</h1>
+        
+        <div class="demo-text">
+            <strong>Enhancement Overview:</strong><br>
+            • Automatic formatting and spacing for ISP task titles<br>
+            • Proper punctuation and capitalization<br>
+            • Visual badge to distinguish ISP tasks<br>
+            • Improved readability with better typography<br>
+            • Smart truncation at natural break points
+        </div>
+        
+        <div class="comparison">
+            <div class="before">
+                <h3 class="comparison-title">❌ Before (Raw Text)</h3>
+                <div class="old-title">
+                    ISP Task: Meal Time Planning and Preparation:Describe 1.The support provided to the individual to prepare meals or snacks during the shift.2.How the individual participated in planning for or preparing meals and snacks during the shift.
+                </div>
+                <p style="margin-top: 10px; font-size: 12px; color: #6b7280;">
+                    Poor spacing, missing punctuation, hard to read
+                </p>
+            </div>
+            
+            <div class="after">
+                <h3 class="comparison-title">✅ After (Auto-Formatted)</h3>
+                <div class="isp-task-badge">ISP TASK</div>
+                <div class="isp-task-title">
+                    Meal Time Planning and Preparation: Describe 1. The support provided to the individual to prepare meals or snacks during the shift. 2. How the individual participated in planning for or preparing meals and snacks during the shift.
+                </div>
+                <p style="margin-top: 10px; font-size: 12px; color: #6b7280;">
+                    Proper spacing, clear structure, easy to read
+                </p>
+            </div>
+        </div>
+        
+        <div class="formatting-rules">
+            <h3 style="margin-top: 0; color: #374151;">🔧 Automatic Formatting Rules</h3>
+            <ul class="rule-list">
+                <li>
+                    <strong>Colon Spacing:</strong> 
+                    <span class="rule-example">"Planning:Describe" → "Planning: Describe"</span>
+                </li>
+                <li>
+                    <strong>Numbered Lists:</strong> 
+                    <span class="rule-example">"1.The support" → "1. The support"</span>
+                </li>
+                <li>
+                    <strong>Comma Spacing:</strong> 
+                    <span class="rule-example">"meals,snacks" → "meals, snacks"</span>
+                </li>
+                <li>
+                    <strong>Capitalization:</strong> 
+                    <span class="rule-example">"shift.how" → "shift. How"</span>
+                </li>
+                <li>
+                    <strong>Goal Formatting:</strong> 
+                    <span class="rule-example">"Goal:Chad will" → "Goal: Chad will"</span>
+                </li>
+                <li>
+                    <strong>Treatment Patterns:</strong> 
+                    <span class="rule-example">"Active Treatment:Individual" → "Active Treatment: Individual"</span>
+                </li>
+            </ul>
+        </div>
+        
+        <h2 style="margin-bottom: 20px; color: #374151;">Live Examples:</h2>
+        
+        <!-- Example 1: Meal Planning -->
+        <div class="example-section">
+            <div class="section-header">
+                <div class="isp-task-badge">ISP TASK</div>
+                <div class="isp-task-title">
+                    Meal Time Planning and Preparation: Describe 1. The support provided to the individual to prepare meals or snacks during the shift. 2. How the individual participated in planning for or preparing meals and snacks during the shift.
+                </div>
+            </div>
+            <p style="color: #6b7280; font-size: 12px;">Complex multi-part task with proper formatting</p>
+        </div>
+        
+        <!-- Example 2: Goal-based -->
+        <div class="example-section">
+            <div class="section-header">
+                <div class="isp-task-badge">ISP TASK</div>
+                <div class="isp-task-title">
+                    Goal: Chad will shower daily with staff encouragement and verbal prompts to complete all steps of personal hygiene routine including washing hair, body, and face. Active Treatment: Individual Response:
+                </div>
+            </div>
+            <p style="color: #6b7280; font-size: 12px;">Goal-based task with treatment and response sections</p>
+        </div>
+        
+        <!-- Example 3: Communication -->
+        <div class="example-section">
+            <div class="section-header">
+                <div class="isp-task-badge">ISP TASK</div>
+                <div class="isp-task-title">
+                    Communication goals - verbal requests, social interaction skills, turn-taking in conversations, expressing needs clearly
+                </div>
+            </div>
+            <p style="color: #6b7280; font-size: 12px;">Simple communication task with proper comma spacing</p>
+        </div>
+        
+        <!-- Example 4: Behavioral -->
+        <div class="example-section">
+            <div class="section-header">
+                <div class="isp-task-badge">ISP TASK</div>
+                <div class="isp-task-title">
+                    Behavioral objectives: 1. Attention span during structured activities. 2. Following multi-step directions. 3. Appropriate responses to redirection and feedback from staff members.
+                </div>
+            </div>
+            <p style="color: #6b7280; font-size: 12px;">Behavioral objectives with numbered list formatting</p>
+        </div>
+        
+        <div style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 20px; margin-top: 30px;">
+            <h3 style="margin-top: 0; color: #0c4a6e;">💡 Benefits</h3>
+            <ul style="color: #0c4a6e; margin: 0;">
+                <li><strong>Better Readability:</strong> Proper spacing and punctuation make titles easier to scan</li>
+                <li><strong>Professional Appearance:</strong> Consistent formatting across all ISP tasks</li>
+                <li><strong>Automatic Processing:</strong> No manual formatting required from users</li>
+                <li><strong>Visual Hierarchy:</strong> Clear distinction between ISP tasks and other sections</li>
+                <li><strong>Smart Truncation:</strong> Breaks at natural points for better context</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>
