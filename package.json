@@ -7,7 +7,14 @@
     "backend": "node start-backend.js",
     "test": "node test-fixes.js",
     "dev": "concurrently \"npm run backend\" \"cd frontend && npm run dev\"",
-    "fix": "node fix-and-start.js"
+    "dev-auto": "node server-manager.js start",
+    "dev-shell": "./start-dev.sh",
+    "stop": "node server-manager.js stop",
+    "stop-shell": "./stop-dev.sh",
+    "status": "node server-manager.js status",
+    "fix": "node fix-and-start.js",
+    "health": "curl -s http://localhost:3001/health || echo 'Backend not running'",
+    "servers": "echo '🚀 SwiftNotes Server Management:' && echo '  npm run dev-auto  - Start both servers (Node.js)' && echo '  npm run dev-shell - Start both servers (Shell)' && echo '  npm run stop      - Stop all servers' && echo '  npm run status    - Check server status' && echo '  npm run health    - Test backend health'"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.9",

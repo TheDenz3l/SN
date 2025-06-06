@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -28,6 +28,7 @@ import {
 import { useAuthStore } from '../stores/authStore';
 import { userAPI, ispTasksAPI } from '../services/apiService';
 import AutoResizeTextarea from '../components/AutoResizeTextarea';
+import DefaultGenerationSettings from '../components/DefaultGenerationSettings';
 
 // Validation schemas
 const profileSchema = z.object({
@@ -81,6 +82,11 @@ const SettingsPage: React.FC = () => {
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const { user, updateUser, signOut } = useAuthStore();
+
+  // Memoize setIsLoading to prevent unnecessary re-renders
+  const memoizedSetIsLoading = useCallback((loading: boolean) => {
+    setIsLoading(loading);
+  }, []);
 
   // Load ISP tasks
   useEffect(() => {
@@ -302,18 +308,7 @@ const SettingsPage: React.FC = () => {
 
   // Writing Preferences Component
   const WritingPreferences: React.FC = () => {
-    const [defaultToneLevel, setDefaultToneLevel] = useState(user?.preferences?.defaultToneLevel ?? 50);
-    const [defaultDetailLevel, setDefaultDetailLevel] = useState<'brief' | 'moderate' | 'detailed' | 'comprehensive'>(user?.preferences?.defaultDetailLevel ?? 'detailed');
     const [showWritingStyleForm, setShowWritingStyleForm] = useState(false);
-    const [isSaving, setIsSaving] = useState(false);
-
-    // Update state when user preferences change, but not during save operations
-    useEffect(() => {
-      if (user?.preferences && !isSaving) {
-        setDefaultToneLevel(user.preferences.defaultToneLevel ?? 50);
-        setDefaultDetailLevel(user.preferences.defaultDetailLevel ?? 'detailed');
-      }
-    }, [user?.preferences, isSaving]);
 
     const {
       register: registerWritingStyle,
@@ -348,36 +343,7 @@ const SettingsPage: React.FC = () => {
       }
     };
 
-    const savePreferences = async () => {
-      setIsLoading(true);
-      setIsSaving(true);
-      try {
-        const result = await userAPI.updatePreferences({
-          defaultToneLevel,
-          defaultDetailLevel,
-        });
-        if (result.success) {
-          // Update user state with new preferences
-          await updateUser({
-            ...user,
-            preferences: {
-              ...user?.preferences,
-              defaultToneLevel,
-              defaultDetailLevel,
-            }
-          });
-          toast.success('Preferences saved successfully');
-        } else {
-          toast.error(result.error || 'Failed to save preferences');
-        }
-      } catch (error) {
-        toast.error('Failed to save preferences');
-      } finally {
-        setIsLoading(false);
-        // Small delay to ensure user state update is complete before allowing useEffect to run
-        setTimeout(() => setIsSaving(false), 100);
-      }
-    };
+
 
     return (
       <div className="space-y-6">
@@ -463,87 +429,16 @@ const SettingsPage: React.FC = () => {
           )}
         </div>
 
-        {/* Default Preferences */}
-        <div className="bg-white shadow-sm rounded-lg p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Default Generation Settings</h3>
-
-          <div className="space-y-6">
-            {/* Default Tone Level */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Default Tone Level
-              </label>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-xs text-gray-600">
-                  <span>More Authentic</span>
-                  <span>More Professional</span>
-                </div>
-                <div className="relative">
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={defaultToneLevel}
-                    onChange={(e) => setDefaultToneLevel(Number(e.target.value))}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                    style={{
-                      background: `linear-gradient(to right, #3B82F6 0%, #3B82F6 ${defaultToneLevel}%, #E5E7EB ${defaultToneLevel}%, #E5E7EB 100%)`
-                    }}
-                  />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>0</span>
-                    <span className="font-medium text-gray-700">{defaultToneLevel}</span>
-                    <span>100</span>
-                  </div>
-                </div>
-                <div className="text-xs text-gray-600 text-center">
-                  {defaultToneLevel < 25 && "Personal writing style with natural expressions"}
-                  {defaultToneLevel >= 25 && defaultToneLevel < 50 && "Balanced tone with some personal touch"}
-                  {defaultToneLevel >= 50 && defaultToneLevel < 75 && "Professional with clinical standards"}
-                  {defaultToneLevel >= 75 && "Formal clinical documentation style"}
-                </div>
-              </div>
-            </div>
-
-            {/* Default Detail Level */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Default Detail Level
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { value: 'brief', label: 'Brief', description: 'Concise notes' },
-                  { value: 'moderate', label: 'Moderate', description: 'Balanced detail' },
-                  { value: 'detailed', label: 'Detailed', description: 'Comprehensive' },
-                  { value: 'comprehensive', label: 'Comprehensive', description: 'Maximum detail' },
-                ].map((level) => (
-                  <button
-                    key={level.value}
-                    onClick={() => setDefaultDetailLevel(level.value as any)}
-                    className={`p-3 text-left rounded-md border transition-colors ${
-                      defaultDetailLevel === level.value
-                        ? 'border-primary-500 bg-primary-50 text-primary-700'
-                        : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    <div className="font-medium text-sm">{level.label}</div>
-                    <div className="text-xs text-gray-500">{level.description}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex justify-end">
-              <button
-                onClick={savePreferences}
-                disabled={isLoading}
-                className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isLoading ? 'Saving...' : 'Save Preferences'}
-              </button>
-            </div>
-          </div>
-        </div>
+        {/* Default Generation Settings - REBUILT FROM SCRATCH */}
+        {user && (
+          <DefaultGenerationSettings
+            key={`default-generation-settings-${user.id}-${user.updatedAt || Date.now()}`}
+            user={user}
+            updateUser={updateUser}
+            isLoading={isLoading}
+            setIsLoading={memoizedSetIsLoading}
+          />
+        )}
       </div>
     );
   };
@@ -697,9 +592,7 @@ const SettingsPage: React.FC = () => {
                 >
                   <div className="flex-1">
                     <div className="flex items-center space-x-3">
-                      <span className="inline-flex items-center justify-center w-6 h-6 bg-primary-100 text-primary-600 rounded-full text-xs font-medium">
-                        {index + 1}
-                      </span>
+                      <DocumentTextIcon className="h-5 w-5 text-primary-600 flex-shrink-0" />
                       <p className="text-gray-900">{task.description}</p>
                     </div>
                   </div>
@@ -1058,28 +951,7 @@ const SettingsPage: React.FC = () => {
         </main>
       </div>
 
-      {/* Custom CSS for sliders */}
-      <style jsx>{`
-        .slider::-webkit-slider-thumb {
-          appearance: none;
-          height: 20px;
-          width: 20px;
-          border-radius: 50%;
-          background: #3B82F6;
-          cursor: pointer;
-          border: 2px solid #ffffff;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-        .slider::-moz-range-thumb {
-          height: 20px;
-          width: 20px;
-          border-radius: 50%;
-          background: #3B82F6;
-          cursor: pointer;
-          border: 2px solid #ffffff;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-      `}</style>
+
     </div>
   );
 };

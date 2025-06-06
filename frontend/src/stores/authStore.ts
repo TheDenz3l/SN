@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 
 export interface UserProfile {
@@ -22,6 +23,7 @@ export interface UserPreferences {
   defaultDetailLevel?: 'brief' | 'moderate' | 'detailed' | 'comprehensive';
   emailNotifications?: boolean;
   weeklyReports?: boolean;
+  useTimePatterns?: boolean;
 }
 
 export interface User {
@@ -58,15 +60,26 @@ interface AuthState {
   canAccessFeature: (feature: string) => boolean;
 }
 
-// Helper function to parse preferences from JSON string
-const parsePreferences = (preferencesJson?: string | null): UserPreferences => {
-  if (!preferencesJson) return {};
-  try {
-    return JSON.parse(preferencesJson);
-  } catch (error) {
-    console.warn('Failed to parse user preferences:', error);
-    return {};
+// Helper function to parse preferences from JSON string or object
+const parsePreferences = (preferences?: string | UserPreferences | null): UserPreferences => {
+  if (!preferences) return {};
+
+  // If it's already an object, return it directly
+  if (typeof preferences === 'object') {
+    return preferences;
   }
+
+  // If it's a string, try to parse it
+  if (typeof preferences === 'string') {
+    try {
+      return JSON.parse(preferences);
+    } catch (error) {
+      console.warn('Failed to parse user preferences:', error);
+      return {};
+    }
+  }
+
+  return {};
 };
 
 // Helper function to convert Supabase user + profile to our User interface
@@ -183,9 +196,15 @@ export const useAuthStore = create<AuthState>()(
             const token = result.session?.access_token;
             if (token) {
               localStorage.setItem('auth_token', token);
+              if (result.session?.refresh_token) {
+                localStorage.setItem('refresh_token', result.session.refresh_token);
+              }
+              if (result.session?.expires_at) {
+                localStorage.setItem('token_expires_at', result.session.expires_at.toString());
+              }
             }
 
-            // Create user object from backend response
+            // Create user object from backend response with proper preference parsing
             const user: User = {
               id: result.user.id,
               email: result.user.email,
@@ -196,6 +215,8 @@ export const useAuthStore = create<AuthState>()(
               hasCompletedSetup: result.user.hasCompletedSetup,
               writingStyle: result.user.writingStyle,
               preferences: parsePreferences(result.user.preferences),
+              createdAt: result.user.createdAt,
+              updatedAt: result.user.updatedAt,
             };
 
             // Store user data for persistence
@@ -273,13 +294,20 @@ export const useAuthStore = create<AuthState>()(
         try {
           // Handle preferences separately if they're being updated
           if (updates.preferences !== undefined) {
-            // Just update the local state for preferences since they're handled by the preferences API
-            set({
-              user: {
-                ...currentUser,
-                ...updates
-              }
-            });
+            // Create a new user object to ensure reference equality changes
+            const updatedUser = {
+              ...currentUser,
+              ...updates,
+              preferences: {
+                ...currentUser.preferences,
+                ...updates.preferences
+              },
+              updatedAt: new Date().toISOString() // Force timestamp update for component re-mounting
+            };
+
+            // Update both state and localStorage for persistence
+            set({ user: updatedUser });
+            localStorage.setItem('auth_user', JSON.stringify(updatedUser));
             return;
           }
 
@@ -323,13 +351,16 @@ export const useAuthStore = create<AuthState>()(
 
           const result = await response.json();
 
-          // Update local state
-          set({
-            user: {
-              ...currentUser,
-              ...result.user
-            }
-          });
+          // Create updated user object with fresh timestamp
+          const updatedUser = {
+            ...currentUser,
+            ...result.user,
+            updatedAt: new Date().toISOString() // Force timestamp update for component re-mounting
+          };
+
+          // Update both state and localStorage for persistence
+          set({ user: updatedUser });
+          localStorage.setItem('auth_user', JSON.stringify(updatedUser));
         } catch (error: any) {
           const message = error.message || 'Failed to update profile';
           toast.error(message);
@@ -351,9 +382,16 @@ export const useAuthStore = create<AuthState>()(
 
           if (storedToken && storedUser) {
             try {
-              const user = JSON.parse(storedUser);
+              // First set the stored user data immediately to prevent UI flicker
+              const parsedUser = JSON.parse(storedUser);
+              set({
+                user: parsedUser,
+                token: storedToken,
+                isAuthenticated: true,
+                isLoading: true, // Keep loading true while validating
+              });
 
-              // Validate token with backend
+              // Then validate token with backend and get fresh data
               const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/user/profile`, {
                 headers: {
                   'Authorization': `Bearer ${storedToken}`,
@@ -364,32 +402,55 @@ export const useAuthStore = create<AuthState>()(
               if (response.ok) {
                 const profileData = await response.json();
 
+                // Create fresh user object with latest data from backend
+                const freshUser: User = {
+                  id: profileData.user.id,
+                  email: profileData.user.email,
+                  firstName: profileData.user.firstName,
+                  lastName: profileData.user.lastName,
+                  tier: profileData.user.tier,
+                  credits: profileData.user.credits,
+                  hasCompletedSetup: profileData.user.hasCompletedSetup,
+                  writingStyle: profileData.user.writingStyle,
+                  preferences: parsePreferences(profileData.user.preferences),
+                  createdAt: profileData.user.createdAt,
+                  updatedAt: profileData.user.updatedAt || new Date().toISOString(), // Ensure updatedAt is always set
+                };
+
+                // Update localStorage with fresh data
+                localStorage.setItem('auth_user', JSON.stringify(freshUser));
+
+                // Update state with fresh data
                 set({
-                  user: {
-                    id: profileData.user.id,
-                    email: profileData.user.email,
-                    firstName: profileData.user.firstName,
-                    lastName: profileData.user.lastName,
-                    tier: profileData.user.tier,
-                    credits: profileData.user.credits,
-                    hasCompletedSetup: profileData.user.hasCompletedSetup,
-                    writingStyle: profileData.user.writingStyle,
-                    preferences: parsePreferences(profileData.user.preferences),
-                  },
+                  user: freshUser,
                   token: storedToken,
                   isAuthenticated: true,
                   isLoading: false,
                 });
                 return;
               } else {
-                // Token is invalid, clear storage
+                // Token is invalid, clear storage and state
                 localStorage.removeItem('auth_token');
                 localStorage.removeItem('auth_user');
+                set({
+                  user: null,
+                  token: null,
+                  isAuthenticated: false,
+                  isLoading: false,
+                });
+                return;
               }
             } catch (error) {
               console.error('Error validating stored token:', error);
               localStorage.removeItem('auth_token');
               localStorage.removeItem('auth_user');
+              set({
+                user: null,
+                token: null,
+                isAuthenticated: false,
+                isLoading: false,
+              });
+              return;
             }
           }
 

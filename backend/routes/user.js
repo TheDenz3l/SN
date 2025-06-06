@@ -5,7 +5,6 @@
 
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const WritingAnalyticsService = require('../services/writingAnalyticsService');
 const router = express.Router();
 
 // Validation middleware
@@ -37,8 +36,8 @@ const validateSetupCompletion = [
     .withMessage('At least one ISP task is required'),
   body('ispTasks.*.description')
     .trim()
-    .isLength({ min: 1, max: 3000 })
-    .withMessage('ISP task description must be between 1 and 3000 characters')
+    .isLength({ min: 5, max: 500 })
+    .withMessage('ISP task description must be between 5 and 500 characters')
 ];
 
 // Helper function to handle validation errors
@@ -58,6 +57,76 @@ const handleValidationErrors = (req, res, next) => {
     });
   }
   next();
+};
+
+// Simple local writing style analysis function
+const analyzeWritingStyleQuality = (writingStyle) => {
+  const wordCount = writingStyle.split(/\s+/).length;
+  const sentenceCount = writingStyle.split(/[.!?]+/).filter(s => s.trim().length > 0).length;
+  const avgWordsPerSentence = wordCount / sentenceCount;
+
+  let quality = 'fair';
+  let score = 60;
+  let suggestions = [];
+  let strengths = [];
+
+  // Analyze length
+  if (writingStyle.length >= 500) {
+    strengths.push('Comprehensive writing sample');
+    score += 10;
+  } else if (writingStyle.length < 200) {
+    suggestions.push('Consider providing a longer writing sample for better analysis');
+    score -= 10;
+  }
+
+  // Analyze sentence structure
+  if (avgWordsPerSentence >= 15 && avgWordsPerSentence <= 25) {
+    strengths.push('Well-structured sentences');
+    score += 10;
+  } else if (avgWordsPerSentence < 10) {
+    suggestions.push('Consider using more detailed sentence structures');
+    score -= 5;
+  }
+
+  // Analyze vocabulary complexity
+  const complexWords = writingStyle.match(/\b\w{8,}\b/g) || [];
+  const complexWordRatio = complexWords.length / wordCount;
+
+  if (complexWordRatio > 0.15) {
+    strengths.push('Rich professional vocabulary');
+    score += 10;
+  } else if (complexWordRatio < 0.05) {
+    suggestions.push('Consider incorporating more professional terminology');
+    score -= 5;
+  }
+
+  // Determine quality based on score
+  if (score >= 80) {
+    quality = 'excellent';
+  } else if (score >= 70) {
+    quality = 'good';
+  } else if (score >= 50) {
+    quality = 'fair';
+  } else {
+    quality = 'needs_improvement';
+  }
+
+  // Add default suggestions if none exist
+  if (suggestions.length === 0) {
+    suggestions.push('Your writing style looks good for professional documentation');
+  }
+
+  // Add default strengths if none exist
+  if (strengths.length === 0) {
+    strengths.push('Clear communication style');
+  }
+
+  return {
+    quality,
+    score: Math.max(0, Math.min(100, score)),
+    suggestions,
+    strengths
+  };
 };
 
 /**
@@ -98,6 +167,15 @@ router.get('/profile', async (req, res) => {
 
     const profile = allProfiles[0];
 
+    // Parse preferences from JSON string
+    let parsedPreferences = {};
+    try {
+      parsedPreferences = profile.preferences ? JSON.parse(profile.preferences) : {};
+    } catch (parseError) {
+      console.warn('⚠️ Error parsing preferences, returning empty object:', parseError);
+      parsedPreferences = {};
+    }
+
     res.json({
       success: true,
       user: {
@@ -109,7 +187,7 @@ router.get('/profile', async (req, res) => {
         credits: profile.credits,
         hasCompletedSetup: profile.has_completed_setup,
         writingStyle: profile.writing_style,
-        preferences: profile.preferences,
+        preferences: parsedPreferences,
         createdAt: profile.created_at,
         updatedAt: profile.updated_at
       }
@@ -159,6 +237,15 @@ router.put('/profile', validateProfileUpdate, handleValidationErrors, async (req
       });
     }
 
+    // Parse preferences from JSON string
+    let parsedPreferences = {};
+    try {
+      parsedPreferences = profile.preferences ? JSON.parse(profile.preferences) : {};
+    } catch (parseError) {
+      console.warn('⚠️ Error parsing preferences, returning empty object:', parseError);
+      parsedPreferences = {};
+    }
+
     res.json({
       success: true,
       message: 'Profile updated successfully',
@@ -171,6 +258,7 @@ router.put('/profile', validateProfileUpdate, handleValidationErrors, async (req
         credits: profile.credits,
         hasCompletedSetup: profile.has_completed_setup,
         writingStyle: profile.writing_style,
+        preferences: parsedPreferences,
         updatedAt: profile.updated_at
       }
     });
@@ -202,9 +290,8 @@ router.post('/complete-setup', validateSetupCompletion, handleValidationErrors, 
       ispTasks: ispTasks?.map(task => ({ description: task.description, length: task.description?.length }))
     });
 
-    // Analyze writing style quality
-    const analyticsService = new WritingAnalyticsService(supabase);
-    const styleAnalysis = analyticsService.analyzeWritingStyleQuality(writingStyle);
+    // Analyze writing style quality (simplified local implementation)
+    const styleAnalysis = analyzeWritingStyleQuality(writingStyle);
 
     // Calculate initial confidence based on analysis
     let initialConfidence = 0.50; // Default
@@ -628,7 +715,7 @@ router.put('/preferences', async (req, res) => {
   try {
     const supabase = req.app.locals.supabase;
     const userId = req.user.id;
-    const { defaultToneLevel, defaultDetailLevel, emailNotifications, weeklyReports } = req.body;
+    const { defaultToneLevel, defaultDetailLevel, emailNotifications, weeklyReports, useTimePatterns } = req.body;
 
     // Get current preferences
     const { data: currentProfile, error: fetchError } = await supabase
@@ -682,6 +769,10 @@ router.put('/preferences', async (req, res) => {
 
     if (weeklyReports !== undefined) {
       preferences.weeklyReports = weeklyReports;
+    }
+
+    if (useTimePatterns !== undefined) {
+      preferences.useTimePatterns = useTimePatterns;
     }
 
     // Update preferences in database

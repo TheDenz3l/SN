@@ -3,10 +3,8 @@ import { Link } from 'react-router-dom';
 import { ExclamationTriangleIcon, CogIcon } from '@heroicons/react/24/outline';
 import { useAuthStore } from '../stores/authStore';
 import { noteService } from '../services/noteService';
-// TEMPORARILY DISABLED - import writingAnalyticsService from '../services/writingAnalyticsService';
 import EditableNoteSection from '../components/EditableNoteSection';
 import EnhancedNoteSection from '../components/EnhancedNoteSection';
-// TEMPORARILY DISABLED - import WritingStyleConfidence from '../components/WritingStyleConfidence';
 import type { ISPTask, GenerateNoteRequest } from '../services/noteService';
 import toast from 'react-hot-toast';
 
@@ -238,10 +236,7 @@ const NoteGenerationPage: React.FC = () => {
           </div>
         )}
 
-        {/* TEMPORARILY DISABLED - Writing Style Confidence Indicator */}
-        {/* <div className="mb-6">
-          <WritingStyleConfidence className="max-w-md" />
-        </div> */}
+
 
         <div className="bg-white shadow-sm rounded-lg p-6">
           {/* Note Title */}
@@ -276,17 +271,10 @@ const NoteGenerationPage: React.FC = () => {
                 {section.generated && section.sectionId && (
                   <div className="mt-4">
                     <EditableNoteSection
-                      sectionId={section.sectionId}
-                      noteId={generatedNoteId || ''}
                       content={section.generated}
-                      originalContent={section.originalGenerated || section.generated}
                       isEdited={section.isEdited || false}
                       onContentChange={(newContent, isEdited) => {
                         updateSectionContent(index, newContent, isEdited);
-                      }}
-                      onAnalyticsUpdate={() => {
-                        // Refresh analytics data if needed
-                        console.log('Analytics updated for section:', section.sectionId);
                       }}
                     />
                   </div>

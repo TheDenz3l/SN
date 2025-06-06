@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   PlusIcon,
@@ -7,43 +7,123 @@ import {
   CreditCardIcon,
   ChartBarIcon,
   ArrowRightIcon,
-  CogIcon
+  CogIcon,
+  ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '../stores/authStore';
+import dashboardAnalyticsService, { type DashboardAnalytics } from '../services/dashboardAnalyticsService';
+import toast from 'react-hot-toast';
 
 const DashboardPage: React.FC = () => {
   const { user, getUserDisplayName } = useAuthStore();
+  const [analytics, setAnalytics] = useState<DashboardAnalytics | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const stats = [
-    {
-      name: 'Total Notes Generated',
-      value: '24',
-      icon: DocumentTextIcon,
-      change: '+12%',
-      changeType: 'increase',
-    },
-    {
-      name: 'Credits Remaining',
-      value: user?.credits?.toString() || '0',
-      icon: CreditCardIcon,
-      change: '-5',
-      changeType: 'decrease',
-    },
-    {
-      name: 'Time Saved',
-      value: '4.2 hrs',
-      icon: ClockIcon,
-      change: '+2.1 hrs',
-      changeType: 'increase',
-    },
-    {
-      name: 'This Week',
-      value: '8',
-      icon: ChartBarIcon,
-      change: '+3',
-      changeType: 'increase',
-    },
-  ];
+  // Load dashboard analytics
+  const loadAnalytics = async (showRefreshToast = false) => {
+    if (showRefreshToast) setIsRefreshing(true);
+
+    try {
+      const result = await dashboardAnalyticsService.getDashboardAnalytics('month');
+      if (result.success && result.analytics) {
+        setAnalytics(result.analytics);
+        if (showRefreshToast) {
+          toast.success('Dashboard data refreshed');
+        }
+      } else {
+        console.error('Failed to load analytics:', result.error);
+        if (showRefreshToast) {
+          toast.error('Failed to refresh dashboard data');
+        }
+      }
+    } catch (error) {
+      console.error('Analytics loading error:', error);
+      if (showRefreshToast) {
+        toast.error('Failed to refresh dashboard data');
+      }
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAnalytics();
+  }, []);
+
+  // Generate stats from analytics data
+  const getStats = () => {
+    if (!analytics) {
+      return [
+        {
+          name: 'Total Notes',
+          value: '0',
+          icon: DocumentTextIcon,
+          change: '0%',
+          changeType: 'neutral' as const,
+        },
+        {
+          name: 'Credits Remaining',
+          value: user?.credits?.toString() || '0',
+          icon: CreditCardIcon,
+          change: '0',
+          changeType: 'neutral' as const,
+        },
+        {
+          name: 'Time Saved',
+          value: '0 hrs',
+          icon: ClockIcon,
+          change: '0%',
+          changeType: 'neutral' as const,
+        },
+        {
+          name: 'This Month',
+          value: '0',
+          icon: ChartBarIcon,
+          change: '0%',
+          changeType: 'neutral' as const,
+        },
+      ];
+    }
+
+    const timeSavedFormatted = dashboardAnalyticsService.formatTimeSaved(analytics.summary.timeSavedHours);
+    const notesChange = dashboardAnalyticsService.formatChange(analytics.trends.notesChange);
+    const timeSavedChange = dashboardAnalyticsService.formatChange(analytics.trends.timeSavedChange);
+
+    return [
+      {
+        name: 'Total Notes',
+        value: analytics.summary.totalNotes.toString(),
+        icon: DocumentTextIcon,
+        change: notesChange.text,
+        changeType: notesChange.type,
+      },
+      {
+        name: 'Credits Remaining',
+        value: user?.credits?.toString() || '0',
+        icon: CreditCardIcon,
+        change: analytics.summary.creditsUsed.toString(),
+        changeType: 'decrease' as const,
+      },
+      {
+        name: 'Time Saved',
+        value: timeSavedFormatted,
+        icon: ClockIcon,
+        change: timeSavedChange.text,
+        changeType: timeSavedChange.type,
+      },
+      {
+        name: 'This Month',
+        value: analytics.summary.notesGenerated.toString(),
+        icon: ChartBarIcon,
+        change: notesChange.text,
+        changeType: notesChange.type,
+      },
+    ];
+  };
+
+  const stats = getStats();
 
   const quickActions = [
     {
@@ -70,29 +150,23 @@ const DashboardPage: React.FC = () => {
     },
   ];
 
-  const recentNotes = [
-    {
-      id: '1',
-      title: 'Daily Progress Note - Client A',
-      date: '2025-01-27',
-      time: '2:30 PM',
-      type: 'Progress Note',
-    },
-    {
-      id: '2',
-      title: 'Weekly Summary - Client B',
-      date: '2025-01-26',
-      time: '4:15 PM',
-      type: 'Summary',
-    },
-    {
-      id: '3',
-      title: 'Assessment Note - Client C',
-      date: '2025-01-25',
-      time: '10:45 AM',
-      type: 'Assessment',
-    },
-  ];
+  // Get recent notes from analytics data
+  const getRecentNotes = () => {
+    if (!analytics?.recentActivity) return [];
+
+    return analytics.recentActivity.slice(0, 5).map(activity => {
+      const { date, time } = dashboardAnalyticsService.formatActivityDate(activity.createdAt);
+      return {
+        id: activity.id,
+        title: activity.title,
+        date,
+        time,
+        type: activity.type || 'Note',
+      };
+    });
+  };
+
+  const recentNotes = getRecentNotes();
 
   return (
     <div className="space-y-6">
@@ -107,7 +181,15 @@ const DashboardPage: React.FC = () => {
               Here's what's happening with your notes today.
             </p>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={() => loadAnalytics(true)}
+              disabled={isRefreshing}
+              className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
+              title="Refresh dashboard data"
+            >
+              <ArrowPathIcon className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            </button>
             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
               user?.tier === 'premium' ? 'bg-purple-100 text-purple-800' :
               user?.tier === 'paid' ? 'bg-blue-100 text-blue-800' :
@@ -121,34 +203,58 @@ const DashboardPage: React.FC = () => {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
-          <div key={stat.name} className="bg-white overflow-hidden shadow-sm rounded-lg">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <stat.icon className="h-6 w-6 text-gray-400" />
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">
-                      {stat.name}
-                    </dt>
-                    <dd className="flex items-baseline">
-                      <div className="text-2xl font-semibold text-gray-900">
-                        {stat.value}
-                      </div>
-                      <div className={`ml-2 flex items-baseline text-sm font-semibold ${
-                        stat.changeType === 'increase' ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {stat.change}
-                      </div>
-                    </dd>
-                  </dl>
+        {isLoading ? (
+          // Loading skeleton
+          Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="bg-white overflow-hidden shadow-sm rounded-lg">
+              <div className="p-5">
+                <div className="animate-pulse">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <div className="h-6 w-6 bg-gray-200 rounded"></div>
+                    </div>
+                    <div className="ml-5 w-0 flex-1">
+                      <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                      <div className="h-6 bg-gray-200 rounded w-1/2"></div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))
+        ) : (
+          stats.map((stat) => (
+            <div key={stat.name} className="bg-white overflow-hidden shadow-sm rounded-lg">
+              <div className="p-5">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <stat.icon className="h-6 w-6 text-gray-400" />
+                  </div>
+                  <div className="ml-5 w-0 flex-1">
+                    <dl>
+                      <dt className="text-sm font-medium text-gray-500 truncate">
+                        {stat.name}
+                      </dt>
+                      <dd className="flex items-baseline">
+                        <div className="text-2xl font-semibold text-gray-900">
+                          {stat.value}
+                        </div>
+                        {stat.change !== '0%' && stat.change !== '0' && (
+                          <div className={`ml-2 flex items-baseline text-sm font-semibold ${
+                            stat.changeType === 'increase' ? 'text-green-600' :
+                            stat.changeType === 'decrease' ? 'text-red-600' : 'text-gray-600'
+                          }`}>
+                            {stat.change}
+                          </div>
+                        )}
+                      </dd>
+                    </dl>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       {/* Quick Actions */}

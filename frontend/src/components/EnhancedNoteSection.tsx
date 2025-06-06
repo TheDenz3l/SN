@@ -15,6 +15,7 @@ import {
   ChevronUpIcon
 } from '@heroicons/react/24/outline';
 import { aiAPI } from '../services/apiService';
+import { useAuthStore } from '../stores/authStore';
 import AutoResizeTextarea from './AutoResizeTextarea';
 import toast from 'react-hot-toast';
 
@@ -65,13 +66,28 @@ const EnhancedNoteSection: React.FC<EnhancedNoteSectionProps> = ({
   onRemove,
   className = ''
 }) => {
+  const { user } = useAuthStore();
   const [showPreview, setShowPreview] = useState(false);
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
-  const [detailLevel, setDetailLevel] = useState<'brief' | 'moderate' | 'detailed' | 'comprehensive'>('detailed');
+  const [detailLevel, setDetailLevel] = useState<'brief' | 'moderate' | 'detailed' | 'comprehensive'>('brief');
   const [toneLevel, setToneLevel] = useState<number>(50); // 0 = Most Authentic, 100 = Most Professional
   const [showSettings, setShowSettings] = useState(false);
   const [isTitleExpanded, setIsTitleExpanded] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Initialize with user's default preferences
+  useEffect(() => {
+    if (user?.preferences) {
+      const defaultTone = user.preferences.defaultToneLevel ?? 50;
+      const defaultDetail = user.preferences.defaultDetailLevel ?? 'brief';
+
+      // Always update with fresh preferences on user change
+      setToneLevel(defaultTone);
+      setDetailLevel(defaultDetail);
+      setIsInitialized(true);
+    }
+  }, [user?.preferences]);
 
   const generatePreview = async () => {
     if (!section.prompt.trim()) {
@@ -224,46 +240,42 @@ const EnhancedNoteSection: React.FC<EnhancedNoteSectionProps> = ({
       {/* Section Header */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
         <div className="flex-1 min-w-0">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-            <div className="flex items-start gap-2">
-              {section.type === 'task' ? (
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start gap-2">
-                    <span className="isp-task-badge mt-0.5">
-                      ISP TASK
-                    </span>
-                    {shouldShowExpandButton() && (
-                      <button
-                        onClick={() => setIsTitleExpanded(!isTitleExpanded)}
-                        className="p-1 text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0 mt-0.5"
-                        title={isTitleExpanded ? "Show less" : "Show full title"}
-                      >
-                        {isTitleExpanded ? (
-                          <ChevronUpIcon className="h-4 w-4" />
-                        ) : (
-                          <ChevronDownIcon className="h-4 w-4" />
-                        )}
-                      </button>
+          {section.type === 'task' ? (
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start gap-2">
+                <span className="isp-task-badge mt-0.5">
+                  ISP TASK
+                </span>
+                {shouldShowExpandButton() && (
+                  <button
+                    onClick={() => setIsTitleExpanded(!isTitleExpanded)}
+                    className="p-1 text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0 mt-0.5"
+                    title={isTitleExpanded ? "Show less" : "Show full title"}
+                  >
+                    {isTitleExpanded ? (
+                      <ChevronUpIcon className="h-4 w-4" />
+                    ) : (
+                      <ChevronDownIcon className="h-4 w-4" />
                     )}
-                  </div>
-                  <div className="mt-2">
-                    <h3 className="isp-task-title break-words">
-                      {getSectionTitle()}
-                    </h3>
-                  </div>
-                </div>
-              ) : (
-                <h3 className="text-sm font-medium text-gray-900 break-words leading-relaxed">
+                  </button>
+                )}
+              </div>
+              <div className="mt-2">
+                <h3 className="isp-task-title break-words">
                   {getSectionTitle()}
                 </h3>
-              )}
+              </div>
             </div>
-            <span className={`px-2 py-1 text-xs font-medium rounded-full self-start ${getDetailLevelColor(detailLevel)}`}>
-              {detailLevel}
-            </span>
-          </div>
+          ) : (
+            <h3 className="text-sm font-medium text-gray-900 break-words leading-relaxed">
+              {getSectionTitle()}
+            </h3>
+          )}
         </div>
         <div className="flex items-center space-x-2 flex-shrink-0">
+          <span className={`px-2 py-1 text-xs font-medium rounded-full ${getDetailLevelColor(detailLevel)}`}>
+            {detailLevel}
+          </span>
           <button
             onClick={() => setShowSettings(!showSettings)}
             className="p-1 text-gray-400 hover:text-gray-600 transition-colors"

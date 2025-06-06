@@ -12,11 +12,6 @@ import { noteService } from './services/noteService';
 
 // Test individual imports from NoteGenerationPage dependencies
 import EditableNoteSection from './components/EditableNoteSection';
-// import WritingStyleConfidence from './components/WritingStyleConfidence';
-// import writingAnalyticsService from './services/writingAnalyticsService';
-
-// Test isolated component - DISABLED FOR NOW
-// import TestWritingStyleConfidence from './TestWritingStyleConfidence';
 
 // Test if basic components work
 const HomePage = () => {
@@ -44,9 +39,6 @@ const HomePage = () => {
         <p>✅ Note service working</p>
         <p>🔄 NoteGenerationPage import disabled</p>
         <p>✅ EditableNoteSection imported</p>
-        <p>🔄 WritingStyleConfidence disabled</p>
-        <p>🔄 writingAnalyticsService disabled</p>
-        <p>✅ TestWritingStyleConfidence imported</p>
         <p>✅ User: {user ? user.email : 'Not logged in'}</p>
         <p>✅ Ready to add more features</p>
       </div>
@@ -64,17 +56,16 @@ const HomePage = () => {
           Test Dashboard
         </a>
         <button
-          onClick={testSupabase}
+          onClick={() => console.log('Test button clicked')}
           className="block w-full bg-purple-600 text-white py-2 px-4 rounded hover:bg-purple-700 transition-colors"
         >
-          Test Supabase (Check Console)
+          Test Button
         </button>
       </div>
 
-      {/* Test isolated component - DISABLED FOR NOW */}
+      {/* Status */}
       <div className="mt-6 border-t pt-6">
         <div className="text-sm text-gray-500">
-          <p>🔄 WritingStyleConfidence test disabled</p>
           <p>✅ Basic app working perfectly!</p>
         </div>
       </div>

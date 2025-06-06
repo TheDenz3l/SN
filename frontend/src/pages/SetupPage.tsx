@@ -8,13 +8,14 @@ import {
   DocumentTextIcon,
   PlusIcon,
   TrashIcon,
-  InformationCircleIcon
+  InformationCircleIcon,
+  PhotoIcon
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '../stores/authStore';
 import { completeSetup, checkDatabaseStatus, type SetupData } from '../services/setupService';
-import writingAnalyticsService from '../services/writingAnalyticsService';
 import DatabaseSetup from '../components/DatabaseSetup';
 import AutoResizeTextarea from '../components/AutoResizeTextarea';
+import OCRTaskExtraction from '../components/OCRTaskExtraction';
 import toast from 'react-hot-toast';
 
 // Local interface definition to avoid import issues
@@ -33,7 +34,7 @@ const setupSchema = z.object({
   ispTasks: z.array(z.object({
     id: z.string(),
     description: z.string()
-      .min(1, 'Task description is required')
+      .min(5, 'Task description must be at least 5 characters')
       .max(500, 'Task description cannot exceed 500 characters'),
   })).min(1, 'At least one ISP task is required'),
 });
@@ -45,6 +46,7 @@ const SetupPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [styleAnalysis, setStyleAnalysis] = useState<StyleAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showOCRExtraction, setShowOCRExtraction] = useState(false);
   const navigate = useNavigate();
   const { updateUser } = useAuthStore();
 
@@ -57,6 +59,7 @@ const SetupPage: React.FC = () => {
     getValues,
   } = useForm<SetupFormData>({
     resolver: zodResolver(setupSchema),
+    mode: 'onSubmit', // Only validate on submit, not on change
     defaultValues: {
       writingStyle: '',
       ispTasks: [{ id: '1', description: '' }],
@@ -110,6 +113,32 @@ const SetupPage: React.FC = () => {
     }
   };
 
+  // Handle OCR extracted tasks
+  const handleOCRTasksExtracted = (extractedTasks: Array<{ description: string }>) => {
+    const currentTasks = getValues('ispTasks');
+    const newTasks = extractedTasks.map(task => ({
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      description: task.description
+    }));
+
+    // If we only have empty tasks, replace them; otherwise append
+    const hasValidTasks = currentTasks.some(task => task.description.trim());
+    if (!hasValidTasks) {
+      setValue('ispTasks', newTasks);
+    } else {
+      setValue('ispTasks', [...currentTasks, ...newTasks]);
+    }
+
+    setShowOCRExtraction(false);
+    toast.success(`Added ${newTasks.length} task${newTasks.length !== 1 ? 's' : ''} from OCR extraction`);
+  };
+
+  // Handle manual task addition from OCR component
+  const handleAddManualTaskFromOCR = () => {
+    setShowOCRExtraction(false);
+    addIspTask();
+  };
+
   const nextStep = () => {
     if (currentStep < 3) {
       setCurrentStep(currentStep + 1);
@@ -126,7 +155,7 @@ const SetupPage: React.FC = () => {
     setCurrentStep(1); // Move to writing style step
   };
 
-  // Analyze writing style when user types
+  // Analyze writing style when user types (simplified without analytics service)
   const analyzeWritingStyle = async (writingStyle: string) => {
     if (writingStyle.length < 100) {
       setStyleAnalysis(null);
@@ -135,10 +164,29 @@ const SetupPage: React.FC = () => {
 
     setIsAnalyzing(true);
     try {
-      const result = await writingAnalyticsService.analyzeWritingStyle(writingStyle);
-      if (result.success && result.analysis) {
-        setStyleAnalysis(result.analysis);
+      // Simple local analysis without external service
+      const wordCount = writingStyle.split(/\s+/).length;
+      const sentenceCount = writingStyle.split(/[.!?]+/).filter(s => s.trim().length > 0).length;
+      const avgWordsPerSentence = wordCount / sentenceCount;
+
+      let quality: 'excellent' | 'good' | 'fair' | 'needs_improvement' = 'good';
+      let score = 75;
+
+      if (writingStyle.length >= 200 && avgWordsPerSentence > 10 && avgWordsPerSentence < 25) {
+        quality = 'excellent';
+        score = 90;
+      } else if (writingStyle.length < 150) {
+        quality = 'needs_improvement';
+        score = 50;
       }
+
+      setStyleAnalysis({
+        quality,
+        score,
+        suggestions: quality === 'needs_improvement' ? ['Consider providing a longer writing sample'] : ['Your writing style looks good!'],
+        strengths: ['Professional tone', 'Clear structure'],
+        weaknesses: quality === 'needs_improvement' ? ['Sample too short'] : []
+      });
     } catch (error) {
       console.error('Style analysis failed:', error);
     } finally {
@@ -407,12 +455,59 @@ const SetupPage: React.FC = () => {
                 </h2>
                 <p className="text-gray-600">
                   Add the ISP tasks you commonly document. These will be available as options
-                  when generating notes. You can add more tasks later.
+                  when generating notes. You can add tasks manually or extract them from a screenshot.
                 </p>
               </div>
 
-              <div className="space-y-4 mb-6">
-                {watchedIspTasks.map((task, index) => (
+              {/* OCR Extraction Option */}
+              {!showOCRExtraction && (
+                <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-start space-x-3">
+                    <PhotoIcon className="h-6 w-6 text-blue-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <h3 className="text-sm font-medium text-blue-900 mb-1">
+                        Extract Tasks from Screenshot
+                      </h3>
+                      <p className="text-sm text-blue-700 mb-3">
+                        Have a screenshot of your ISP task list? Upload it and we'll automatically extract the tasks for you.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setShowOCRExtraction(true)}
+                        className="inline-flex items-center px-3 py-2 border border-blue-300 shadow-sm text-sm leading-4 font-medium rounded-md text-blue-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      >
+                        <PhotoIcon className="h-4 w-4 mr-2" />
+                        Upload Screenshot
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* OCR Extraction Component */}
+              {showOCRExtraction && (
+                <div className="mb-6">
+                  <OCRTaskExtraction
+                    onTasksExtracted={handleOCRTasksExtracted}
+                    onAddManualTask={handleAddManualTaskFromOCR}
+                  />
+                  <div className="mt-4 text-center">
+                    <button
+                      type="button"
+                      onClick={() => setShowOCRExtraction(false)}
+                      className="text-sm text-gray-600 hover:text-gray-900"
+                    >
+                      Cancel and add tasks manually
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Manual Task Entry */}
+              {!showOCRExtraction && (
+                <>
+                  <div className="space-y-4 mb-6">
+                    {watchedIspTasks.map((task, index) => (
                   <div key={task.id} className="flex items-start space-x-3">
                     <div className="flex-1">
                       <label htmlFor={`task-${index}`} className="block text-sm font-medium text-gray-700 mb-1">
@@ -459,14 +554,16 @@ const SetupPage: React.FC = () => {
                 ))}
               </div>
 
-              <button
-                type="button"
-                onClick={addIspTask}
-                className="mb-6 inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                <PlusIcon className="h-4 w-4 mr-2" />
-                Add Another Task
-              </button>
+                  <button
+                    type="button"
+                    onClick={addIspTask}
+                    className="mb-6 inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    <PlusIcon className="h-4 w-4 mr-2" />
+                    Add Another Task
+                  </button>
+                </>
+              )}
 
               <div className="flex justify-between">
                 <button
@@ -519,7 +616,7 @@ const SetupPage: React.FC = () => {
                   <ul className="space-y-2">
                     {watchedIspTasks.filter(task => task.description.trim()).map((task) => (
                       <li key={task.id} className="flex items-center text-sm text-gray-700">
-                        <DocumentTextIcon className="h-4 w-4 text-gray-400 mr-2" />
+                        <DocumentTextIcon className="h-5 w-5 text-primary-600 mr-2 flex-shrink-0" />
                         {task.description}
                       </li>
                     ))}

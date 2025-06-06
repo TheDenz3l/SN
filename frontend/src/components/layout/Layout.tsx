@@ -1,17 +1,16 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { 
-  HomeIcon, 
-  DocumentTextIcon, 
-  CogIcon, 
+import {
+  HomeIcon,
+  DocumentTextIcon,
+  CogIcon,
   UserIcon,
   PlusIcon,
   ClockIcon,
   Bars3Icon,
   XMarkIcon,
   CreditCardIcon,
-  BellIcon,
-  ChartBarIcon
+  BellIcon
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '../../stores/authStore';
 import { clsx } from 'clsx';
@@ -30,7 +29,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
     { name: 'Generate Notes', href: '/generate', icon: PlusIcon },
     { name: 'Notes History', href: '/notes', icon: ClockIcon },
-    { name: 'Analytics', href: '/analytics', icon: ChartBarIcon },
     { name: 'Setup', href: '/setup', icon: CogIcon },
   ];
 

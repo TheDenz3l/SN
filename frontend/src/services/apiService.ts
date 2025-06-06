@@ -11,10 +11,12 @@ const getAuthToken = () => {
 };
 
 // Helper function to create headers with auth token
-const createHeaders = (includeAuth = false): HeadersInit => {
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-  };
+const createHeaders = (includeAuth = false, includeContentType = true): HeadersInit => {
+  const headers: HeadersInit = {};
+
+  if (includeContentType) {
+    headers['Content-Type'] = 'application/json';
+  }
 
   if (includeAuth) {
     const token = getAuthToken();
@@ -159,6 +161,7 @@ export const userAPI = {
     defaultDetailLevel?: string;
     emailNotifications?: boolean;
     weeklyReports?: boolean;
+    useTimePatterns?: boolean;
   }) => {
     const response = await fetch(`${API_BASE_URL}/user/preferences`, {
       method: 'PUT',
@@ -323,6 +326,21 @@ export const ispTasksAPI = {
     return handleResponse(response);
   },
 
+  bulkCreateTasks: async (tasks: Array<{
+    description: string;
+    structuredData?: any;
+    formType?: string;
+    extractionMethod?: string;
+    confidence?: number;
+  }>, extractionMetadata?: any) => {
+    const response = await fetch(`${API_BASE_URL}/isp-tasks/bulk-create`, {
+      method: 'POST',
+      headers: createHeaders(true),
+      body: JSON.stringify({ tasks, extractionMetadata }),
+    });
+    return handleResponse(response);
+  },
+
   updateTask: async (id: string, updates: {
     description?: string;
     orderIndex?: number;
@@ -339,6 +357,49 @@ export const ispTasksAPI = {
     const response = await fetch(`${API_BASE_URL}/isp-tasks/${id}`, {
       method: 'DELETE',
       headers: createHeaders(true),
+    });
+    return handleResponse(response);
+  },
+};
+
+// OCR API endpoints
+export const ocrAPI = {
+  processISPScreenshot: async (imageFile: File) => {
+    const formData = new FormData();
+    formData.append('image', imageFile);
+
+    const response = await fetch(`${API_BASE_URL}/ocr/process-isp-screenshot`, {
+      method: 'POST',
+      headers: createHeaders(true, false), // Don't set Content-Type for FormData
+      body: formData,
+    });
+    return handleResponse(response);
+  },
+
+  extractText: async (imageFile: File) => {
+    const formData = new FormData();
+    formData.append('image', imageFile);
+
+    const response = await fetch(`${API_BASE_URL}/ocr/extract-text`, {
+      method: 'POST',
+      headers: createHeaders(true, false), // Don't set Content-Type for FormData
+      body: formData,
+    });
+    return handleResponse(response);
+  },
+
+  getStatus: async () => {
+    const response = await fetch(`${API_BASE_URL}/ocr/status`, {
+      headers: createHeaders(true),
+    });
+    return handleResponse(response);
+  },
+
+  validateTasks: async (tasks: Array<{ description: string; confidence?: number; source?: string }>) => {
+    const response = await fetch(`${API_BASE_URL}/ocr/validate-tasks`, {
+      method: 'POST',
+      headers: createHeaders(true),
+      body: JSON.stringify({ tasks }),
     });
     return handleResponse(response);
   },
@@ -384,76 +445,26 @@ export const aiAPI = {
   },
 };
 
-// Writing Analytics API endpoints
-export const writingAnalyticsAPI = {
-  logAnalytics: async (data: {
-    noteId: string;
-    noteSectionId?: string;
-    originalGenerated: string;
-    userEditedVersion?: string;
-    editType?: 'minor' | 'major' | 'style_change' | 'content_addition' | 'complete_rewrite';
-    confidenceScore?: number;
-    userSatisfactionScore?: number;
-    feedbackNotes?: string;
-    tokensUsed?: number;
-    generationTimeMs?: number;
-    styleMatchScore?: number;
-  }) => {
-    const response = await fetch(`${API_BASE_URL}/writing-analytics/log`, {
-      method: 'POST',
-      headers: createHeaders(true),
-      body: JSON.stringify(data),
-    });
-    return handleResponse(response);
-  },
 
-  getAnalyticsSummary: async () => {
-    const response = await fetch(`${API_BASE_URL}/writing-analytics/summary`, {
+
+// Dashboard Analytics API endpoints
+export const analyticsAPI = {
+  getDashboard: async (period = 'month') => {
+    const response = await fetch(`${API_BASE_URL}/analytics/dashboard?period=${period}`, {
       headers: createHeaders(true),
     });
     return handleResponse(response);
   },
 
-  getAnalyticsHistory: async (limit = 50, offset = 0) => {
-    const response = await fetch(`${API_BASE_URL}/writing-analytics/history?limit=${limit}&offset=${offset}`, {
+  getProductivity: async (period = 'month') => {
+    const response = await fetch(`${API_BASE_URL}/analytics/productivity?period=${period}`, {
       headers: createHeaders(true),
     });
     return handleResponse(response);
   },
 
-  getStyleEvolution: async (limit = 20) => {
-    const response = await fetch(`${API_BASE_URL}/writing-analytics/style-evolution?limit=${limit}`, {
-      headers: createHeaders(true),
-    });
-    return handleResponse(response);
-  },
-
-  evolveStyle: async (data: {
-    newStyle: string;
-    triggerReason: string;
-    notesAnalyzed?: number;
-    improvementMetrics?: any;
-  }) => {
-    const response = await fetch(`${API_BASE_URL}/writing-analytics/evolve-style`, {
-      method: 'POST',
-      headers: createHeaders(true),
-      body: JSON.stringify(data),
-    });
-    return handleResponse(response);
-  },
-
-  analyzeStyle: async (writingStyle: string) => {
-    const response = await fetch(`${API_BASE_URL}/writing-analytics/analyze-style`, {
-      method: 'POST',
-      headers: createHeaders(true),
-      body: JSON.stringify({ writingStyle }),
-    });
-    return handleResponse(response);
-  },
-
-  updateConfidence: async () => {
-    const response = await fetch(`${API_BASE_URL}/writing-analytics/update-confidence`, {
-      method: 'PUT',
+  getOrganization: async (organizationId: string, period = 'month') => {
+    const response = await fetch(`${API_BASE_URL}/analytics/organization/${organizationId}?period=${period}`, {
       headers: createHeaders(true),
     });
     return handleResponse(response);
@@ -475,5 +486,6 @@ export default {
   notes: notesAPI,
   ispTasks: ispTasksAPI,
   ai: aiAPI,
+  analytics: analyticsAPI,
   health: healthAPI,
 };

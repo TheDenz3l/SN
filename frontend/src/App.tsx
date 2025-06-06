@@ -15,8 +15,6 @@ import LandingPage from './pages/LandingPage';
 import DashboardPage from './pages/DashboardPage';
 import SetupPage from './pages/SetupPage';
 import ProfilePage from './pages/ProfilePage';
-// TEMPORARILY DISABLE PROBLEMATIC IMPORT
-// import AnalyticsDashboard from './pages/AnalyticsDashboard';
 import NotesHistoryPage from './pages/NotesHistory';
 import TestPage from './TestPage';
 
@@ -47,10 +45,15 @@ const queryClient = new QueryClient({
   },
 });
 
-// Protected Route Component with error handling
+// Protected Route Component with enhanced error handling and loading states
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   try {
-    const { isAuthenticated } = useAuthStore();
+    const { isAuthenticated, isLoading } = useAuthStore();
+
+    // Show loading spinner while auth is being determined
+    if (isLoading) {
+      return <LoadingSpinner />;
+    }
 
     if (!isAuthenticated) {
       return <Navigate to="/login" replace />;
@@ -63,10 +66,15 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   }
 };
 
-// Public Route Component with error handling
+// Public Route Component with enhanced error handling and loading states
 const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   try {
-    const { isAuthenticated } = useAuthStore();
+    const { isAuthenticated, isLoading } = useAuthStore();
+
+    // Show loading spinner while auth is being determined
+    if (isLoading) {
+      return <LoadingSpinner />;
+    }
 
     if (isAuthenticated) {
       return <Navigate to="/dashboard" replace />;
@@ -92,15 +100,18 @@ const LoadingSpinner = () => (
 function App() {
   console.log('🚀 App component is rendering');
 
-  // Re-enable auth initialization with error handling
-  const { initialize } = useAuthStore();
+  // TEMPORARY: Disable AuthStateManager to fix performance issues
+  const { initialize, isLoading } = useAuthStore();
 
   useEffect(() => {
-    console.log('🔄 Initializing auth...');
     initialize().catch(error => {
       console.error('❌ Auth initialization failed:', error);
     });
   }, [initialize]);
+
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
 
   return (
     <ErrorBoundary>
@@ -171,14 +182,7 @@ function App() {
               </ProtectedRoute>
             } />
 
-            {/* TEMPORARILY DISABLED - AnalyticsDashboard has import issues */}
-            {/* <Route path="/analytics" element={
-              <ProtectedRoute>
-                <Layout>
-                  <AnalyticsDashboard />
-                </Layout>
-              </ProtectedRoute>
-            } /> */}
+
 
                 {/* Catch all route */}
                 <Route path="*" element={<Navigate to="/" replace />} />

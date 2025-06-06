@@ -156,7 +156,14 @@ router.post('/', validateTaskCreation, handleValidationErrors, async (req, res) 
   try {
     const supabase = req.app.locals.supabase;
     const userId = req.user.id;
-    const { description, orderIndex } = req.body;
+    const {
+      description,
+      orderIndex,
+      structuredData,
+      formType = 'basic',
+      extractionMethod = 'manual',
+      extractionConfidence = 100.00
+    } = req.body;
 
     // If no order index provided, get the next available index
     let finalOrderIndex = orderIndex;
@@ -168,18 +175,35 @@ router.post('/', validateTaskCreation, handleValidationErrors, async (req, res) 
         .order('order_index', { ascending: false })
         .limit(1);
 
-      finalOrderIndex = existingTasks && existingTasks.length > 0 
-        ? existingTasks[0].order_index + 1 
+      finalOrderIndex = existingTasks && existingTasks.length > 0
+        ? existingTasks[0].order_index + 1
         : 0;
+    }
+
+    // Prepare task data
+    const taskData = {
+      user_id: userId,
+      description,
+      order_index: finalOrderIndex,
+      form_type: formType,
+      extraction_method: extractionMethod,
+      extraction_confidence: extractionConfidence
+    };
+
+    // Add structured data if provided
+    if (structuredData && typeof structuredData === 'object') {
+      taskData.structured_data = structuredData;
+    } else {
+      // Create basic structured data from description
+      taskData.structured_data = {
+        goal: description,
+        type: 'goal'
+      };
     }
 
     const { data: task, error } = await supabase
       .from('isp_tasks')
-      .insert({
-        user_id: userId,
-        description,
-        order_index: finalOrderIndex
-      })
+      .insert(taskData)
       .select()
       .single();
 
@@ -202,6 +226,96 @@ router.post('/', validateTaskCreation, handleValidationErrors, async (req, res) 
     res.status(500).json({
       success: false,
       error: 'Failed to create ISP task'
+    });
+  }
+});
+
+/**
+ * POST /api/isp-tasks/bulk-create
+ * Create multiple ISP tasks from OCR extraction
+ */
+router.post('/bulk-create', async (req, res) => {
+  try {
+    const supabase = req.app.locals.supabase;
+    const userId = req.user.id;
+    const { tasks, extractionMetadata = {} } = req.body;
+
+    if (!Array.isArray(tasks) || tasks.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Tasks array is required and must not be empty'
+      });
+    }
+
+    // Validate each task
+    for (const task of tasks) {
+      if (!task.description || typeof task.description !== 'string' || task.description.trim().length < 5) {
+        return res.status(400).json({
+          success: false,
+          error: 'Each task must have a description of at least 5 characters'
+        });
+      }
+    }
+
+    // Get the current highest order index
+    const { data: existingTasks } = await supabase
+      .from('isp_tasks')
+      .select('order_index')
+      .eq('user_id', userId)
+      .order('order_index', { ascending: false })
+      .limit(1);
+
+    let nextOrderIndex = existingTasks && existingTasks.length > 0
+      ? existingTasks[0].order_index + 1
+      : 0;
+
+    // Prepare tasks for insertion
+    const tasksToInsert = tasks.map((task, index) => ({
+      user_id: userId,
+      description: task.description.trim(),
+      order_index: nextOrderIndex + index,
+      structured_data: task.structuredData || {
+        goal: task.description.trim(),
+        activeTreatment: task.structuredData?.activeTreatment || '',
+        individualResponse: task.structuredData?.individualResponse || '',
+        scoresComments: task.structuredData?.scoresComments || '',
+        type: 'goal'
+      },
+      form_type: task.formType || extractionMetadata.formType || 'isp_form',
+      extraction_method: task.extractionMethod || extractionMetadata.extractionMethod || 'ocr',
+      extraction_confidence: task.confidence || extractionMetadata.confidence || 0
+    }));
+
+    // Insert all tasks
+    const { data: insertedTasks, error } = await supabase
+      .from('isp_tasks')
+      .insert(tasksToInsert)
+      .select();
+
+    if (error) {
+      console.error('Bulk ISP task creation error:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to create ISP tasks'
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      message: `Successfully created ${insertedTasks.length} ISP tasks`,
+      tasks: insertedTasks,
+      metadata: {
+        totalCreated: insertedTasks.length,
+        extractionMethod: extractionMetadata.extractionMethod || 'ocr',
+        extractionConfidence: extractionMetadata.confidence || 0
+      }
+    });
+
+  } catch (error) {
+    console.error('Bulk ISP task creation error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create ISP tasks'
     });
   }
 });

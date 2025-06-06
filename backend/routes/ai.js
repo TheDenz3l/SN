@@ -7,7 +7,6 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { createClient } = require('@supabase/supabase-js');
-const WritingAnalyticsService = require('../services/writingAnalyticsService');
 const router = express.Router();
 
 // Create a dedicated admin client for AI operations
@@ -80,16 +79,22 @@ const calculateCost = (tokensUsed) => {
 };
 
 // Enhanced AI prompt creation with advanced style preservation and content expansion
-const createEnhancedPrompt = (sectionRequest, writingStyle, taskDescription = null, detailLevel = 'detailed', toneLevel = 50) => {
+const createEnhancedPrompt = (sectionRequest, writingStyle, taskDescription = null, detailLevel = 'brief', toneLevel = 50, userPreferences = {}) => {
   const { prompt, type } = sectionRequest;
 
   // Analyze writing style characteristics
   const styleAnalysis = analyzeWritingStyleCharacteristics(writingStyle);
 
+  // Add user preferences to style analysis
+  styleAnalysis.userPreferences = userPreferences;
+
   // Generate tone instructions based on toneLevel (0-100)
   const toneInstructions = generateToneInstructions(toneLevel, styleAnalysis);
 
-  let systemPrompt = `You are an advanced AI writing assistant specializing in healthcare documentation. Your mission is to generate comprehensive, detailed notes that perfectly mirror the user's authentic writing style while expanding their brief inputs into full, professional documentation.
+  // Generate detail level instructions
+  const detailInstructions = generateDetailLevelInstructions(detailLevel);
+
+  let systemPrompt = `You are an advanced AI writing assistant specializing in healthcare documentation. Your mission is to generate notes that perfectly mirror the user's authentic writing style while transforming their brief inputs into professional documentation.
 
 CRITICAL STYLE PRESERVATION REQUIREMENTS:
 ${generateStylePreservationInstructions(styleAnalysis)}
@@ -97,12 +102,15 @@ ${generateStylePreservationInstructions(styleAnalysis)}
 TONE ADJUSTMENT INSTRUCTIONS:
 ${toneInstructions}
 
+DETAIL LEVEL INSTRUCTIONS:
+${detailInstructions}
+
 ORIGINAL WRITING STYLE SAMPLE:
 ${writingStyle}
 
 CONTENT EXPANSION GUIDELINES:
-- Transform brief user inputs into detailed, comprehensive documentation
-- Add relevant clinical observations and professional details
+- Transform brief user inputs into appropriate documentation based on detail level
+- Add relevant clinical observations and professional details as needed
 - Expand on context while maintaining authenticity
 - Include appropriate healthcare terminology consistent with the user's vocabulary
 - Maintain the user's natural flow of thought and expression patterns
@@ -117,11 +125,7 @@ USER'S BRIEF INPUT:
 
 ENHANCED GENERATION INSTRUCTIONS:
 1. ANALYZE the user's brief input for key concepts and intent
-2. EXPAND the content to include:
-   - Detailed observations and context
-   - Professional terminology matching the user's style
-   - Relevant clinical or support details
-   - Natural elaboration that sounds authentically written by the user
+2. EXPAND the content according to the detail level requirements
 3. PRESERVE the user's:
    - Sentence structure patterns (${styleAnalysis.sentenceStyle})
    - Vocabulary level (${styleAnalysis.vocabularyLevel})
@@ -130,27 +134,31 @@ ENHANCED GENERATION INSTRUCTIONS:
    - Professional terminology preferences
 
 RESPONSE FORMAT:
-Generate a comprehensive, detailed note section that transforms the brief user input into a full professional documentation entry. The response should be 2-3 times more detailed than the input while sounding exactly like the user wrote it themselves.
+Generate a note section that transforms the brief user input into professional documentation following the specified detail level. The content must sound exactly like the user wrote it themselves.
 
 Make it sound natural, authentic, and professionally appropriate for ${type} documentation.`;
 
   return systemPrompt;
 };
 
-// Analyze writing style characteristics for enhanced prompting
+// Enhanced writing style analysis with vocabulary extraction and mapping
 const analyzeWritingStyleCharacteristics = (writingStyle) => {
   const sentences = writingStyle.split(/[.!?]+/).filter(s => s.trim().length > 0);
+  const words = writingStyle.toLowerCase().split(/\s+/).filter(w => w.length > 2);
   const avgSentenceLength = sentences.reduce((sum, s) => sum + s.trim().split(' ').length, 0) / sentences.length;
+
+  // Extract user's vocabulary preferences
+  const vocabularyProfile = extractVocabularyProfile(writingStyle);
 
   // Analyze sentence structure
   const sentenceStyle = avgSentenceLength > 20 ? 'complex, detailed sentences' :
                        avgSentenceLength > 12 ? 'moderate-length sentences' :
                        'concise, direct sentences';
 
-  // Analyze vocabulary complexity
+  // Analyze vocabulary complexity based on actual user words
   const complexWords = writingStyle.match(/\b\w{8,}\b/g) || [];
-  const vocabularyLevel = complexWords.length > writingStyle.split(' ').length * 0.15 ? 'advanced professional vocabulary' :
-                         complexWords.length > writingStyle.split(' ').length * 0.08 ? 'moderate professional vocabulary' :
+  const vocabularyLevel = complexWords.length > words.length * 0.15 ? 'advanced professional vocabulary' :
+                         complexWords.length > words.length * 0.08 ? 'moderate professional vocabulary' :
                          'clear, accessible vocabulary';
 
   // Analyze punctuation patterns
@@ -163,57 +171,527 @@ const analyzeWritingStyleCharacteristics = (writingStyle) => {
                           hasCommas ? 'comma-rich, detailed punctuation' :
                           'simple, direct punctuation';
 
-  // Analyze tone
-  const formalWords = ['individual', 'demonstrated', 'exhibited', 'participated', 'completed'];
-  const casualWords = ['got', 'did', 'went', 'said', 'made'];
-  const formalCount = formalWords.filter(word => writingStyle.toLowerCase().includes(word)).length;
-  const casualCount = casualWords.filter(word => writingStyle.toLowerCase().includes(word)).length;
-
-  const tone = formalCount > casualCount ? 'formal, professional tone' :
-               casualCount > formalCount ? 'conversational, approachable tone' :
-               'balanced professional tone';
+  // Enhanced tone analysis using user's actual vocabulary
+  const userToneProfile = analyzeUserTone(writingStyle, vocabularyProfile);
 
   return {
     sentenceStyle,
     vocabularyLevel,
     punctuationStyle,
-    tone,
-    avgSentenceLength: Math.round(avgSentenceLength)
+    tone: userToneProfile.overallTone,
+    avgSentenceLength: Math.round(avgSentenceLength),
+    vocabularyProfile,
+    userToneProfile,
+    preferredPhrases: vocabularyProfile.commonPhrases,
+    naturalExpressions: vocabularyProfile.naturalExpressions
   };
 };
 
-// Generate specific style preservation instructions
+// Extract comprehensive vocabulary profile from user's writing sample
+const extractVocabularyProfile = (writingStyle) => {
+  const text = writingStyle.toLowerCase();
+  const sentences = writingStyle.split(/[.!?]+/).filter(s => s.trim().length > 0);
+
+  // Extract action verbs (how user describes actions)
+  const actionVerbs = extractActionVerbs(text);
+
+  // Extract descriptive words (how user describes things)
+  const descriptiveWords = extractDescriptiveWords(text);
+
+  // Extract transition words and phrases
+  const transitions = extractTransitions(text);
+
+  // Extract common phrases (2-4 word combinations)
+  const commonPhrases = extractCommonPhrases(sentences);
+
+  // Extract natural expressions and colloquialisms
+  const naturalExpressions = extractNaturalExpressions(text);
+
+  // Create clinical-to-natural mappings
+  const vocabularyMappings = createVocabularyMappings(actionVerbs, descriptiveWords);
+
+  // Detect time-based patterns
+  const timePatterns = detectTimePatterns(writingStyle);
+
+  return {
+    actionVerbs,
+    descriptiveWords,
+    transitions,
+    commonPhrases,
+    naturalExpressions,
+    vocabularyMappings,
+    timePatterns
+  };
+};
+
+// Extract action verbs from user's writing
+const extractActionVerbs = (text) => {
+  const commonActionVerbs = [
+    'went', 'did', 'made', 'got', 'had', 'was', 'were', 'said', 'told', 'asked',
+    'helped', 'worked', 'tried', 'started', 'finished', 'completed', 'showed',
+    'demonstrated', 'practiced', 'learned', 'improved', 'struggled', 'succeeded',
+    'participated', 'engaged', 'focused', 'concentrated', 'enjoyed', 'liked',
+    'seemed', 'appeared', 'looked', 'felt', 'thought', 'believed', 'understood',
+    'sleep', 'slept', 'awakened', 'woke', 'choose', 'chose', 'decided'
+  ];
+
+  const foundVerbs = commonActionVerbs.filter(verb => text.includes(verb));
+  return foundVerbs.slice(0, 15); // Top 15 most relevant
+};
+
+// Extract descriptive words from user's writing
+const extractDescriptiveWords = (text) => {
+  const commonDescriptors = [
+    'good', 'well', 'better', 'best', 'great', 'excellent', 'positive', 'nice',
+    'bad', 'difficult', 'hard', 'challenging', 'tough', 'easy', 'simple',
+    'happy', 'pleased', 'excited', 'motivated', 'focused', 'calm', 'relaxed',
+    'frustrated', 'upset', 'anxious', 'nervous', 'confused', 'clear',
+    'successful', 'effective', 'helpful', 'useful', 'important', 'necessary',
+    'quick', 'slow', 'fast', 'careful', 'thorough', 'detailed', 'brief'
+  ];
+
+  const foundDescriptors = commonDescriptors.filter(desc => text.includes(desc));
+  return foundDescriptors.slice(0, 12); // Top 12 most relevant
+};
+
+// Extract transition words and phrases
+const extractTransitions = (text) => {
+  const commonTransitions = [
+    'then', 'after', 'before', 'during', 'while', 'when', 'since', 'until',
+    'first', 'next', 'finally', 'also', 'and', 'but', 'however', 'although',
+    'because', 'so', 'therefore', 'as well', 'in addition', 'meanwhile'
+  ];
+
+  const foundTransitions = commonTransitions.filter(trans => text.includes(trans));
+  return foundTransitions.slice(0, 10); // Top 10 most relevant
+};
+
+// Extract common phrases (2-4 word combinations)
+const extractCommonPhrases = (sentences) => {
+  const phrases = [];
+
+  sentences.forEach(sentence => {
+    const words = sentence.trim().split(/\s+/);
+
+    // Extract 2-word phrases
+    for (let i = 0; i < words.length - 1; i++) {
+      const phrase = `${words[i]} ${words[i + 1]}`.toLowerCase();
+      if (phrase.length > 6 && !phrases.includes(phrase)) {
+        phrases.push(phrase);
+      }
+    }
+
+    // Extract 3-word phrases
+    for (let i = 0; i < words.length - 2; i++) {
+      const phrase = `${words[i]} ${words[i + 1]} ${words[i + 2]}`.toLowerCase();
+      if (phrase.length > 10 && !phrases.includes(phrase)) {
+        phrases.push(phrase);
+      }
+    }
+  });
+
+  return phrases.slice(0, 8); // Top 8 most relevant phrases
+};
+
+// Extract natural expressions and colloquialisms
+const extractNaturalExpressions = (text) => {
+  const naturalPatterns = [
+    /\b(seemed to|appeared to|looked like|felt like)\b/g,
+    /\b(really|pretty|quite|very|extremely)\s+\w+/g,
+    /\b(a bit|a little|kind of|sort of)\b/g,
+    /\b(he would|she would|they would)\b/g,
+    /\b(got|did|went|made|had)\s+\w+/g
+  ];
+
+  const expressions = [];
+  naturalPatterns.forEach(pattern => {
+    const matches = text.match(pattern) || [];
+    expressions.push(...matches.slice(0, 3)); // Max 3 per pattern
+  });
+
+  return expressions.slice(0, 10); // Top 10 natural expressions
+};
+
+// Detect time-based narrative patterns in user's writing
+const detectTimePatterns = (writingStyle) => {
+  const text = writingStyle;
+
+  // Look for time patterns
+  const timePatterns = {
+    hasTimeMarkers: false,
+    timeFormat: null,
+    timeMarkers: [],
+    usesSequentialTiming: false,
+    timeBasedNarrative: false
+  };
+
+  // Detect various time formats
+  const timeFormats = [
+    { pattern: /\b\d{1,2}:\d{2}(AM|PM)\b/gi, format: '12-hour' },
+    { pattern: /\b\d{1,2}:\d{2}\b/g, format: '24-hour' },
+    { pattern: /\b(morning|afternoon|evening|night)\b/gi, format: 'descriptive' }
+  ];
+
+  timeFormats.forEach(({ pattern, format }) => {
+    const matches = text.match(pattern) || [];
+    if (matches.length > 0) {
+      timePatterns.hasTimeMarkers = true;
+      timePatterns.timeFormat = format;
+      timePatterns.timeMarkers.push(...matches.slice(0, 5)); // Max 5 examples
+    }
+  });
+
+  // Check for sequential timing (multiple time markers in order)
+  if (timePatterns.timeMarkers.length >= 2) {
+    timePatterns.usesSequentialTiming = true;
+    timePatterns.timeBasedNarrative = true;
+  }
+
+  // Look for time-based narrative structure
+  const timeNarrativePatterns = [
+    /\b\d{1,2}:\d{2}(AM|PM)?\s+\w+\s+would\b/gi,
+    /\b(first|then|next|after|before|during)\b/gi,
+    /\b(morning|afternoon|evening)\s+\w+\s+would\b/gi
+  ];
+
+  timeNarrativePatterns.forEach(pattern => {
+    if (text.match(pattern)) {
+      timePatterns.timeBasedNarrative = true;
+    }
+  });
+
+  return timePatterns;
+};
+
+// Create comprehensive mappings from clinical terms to user's natural language
+const createVocabularyMappings = (actionVerbs, descriptiveWords) => {
+  // Enhanced action verb mappings
+  const actionMappings = {
+    'demonstrated': actionVerbs.includes('showed') ? 'showed' : actionVerbs.includes('did') ? 'did' : 'did',
+    'exhibited': actionVerbs.includes('showed') ? 'showed' : actionVerbs.includes('had') ? 'had' : 'had',
+    'participated': actionVerbs.includes('joined') ? 'joined' : actionVerbs.includes('did') ? 'did' : 'did',
+    'completed': actionVerbs.includes('finished') ? 'finished' : 'completed',
+    'initiated': actionVerbs.includes('started') ? 'started' : 'started',
+    'engaged in': actionVerbs.includes('did') ? 'did' : 'did',
+    'performed': actionVerbs.includes('did') ? 'did' : actionVerbs.includes('made') ? 'made' : 'did',
+    'proceeded': actionVerbs.includes('went') ? 'went' : 'went',
+    'commenced': actionVerbs.includes('started') ? 'started' : 'started',
+    'executed': actionVerbs.includes('did') ? 'did' : 'did',
+    'administered': actionVerbs.includes('gave') ? 'gave' : 'gave',
+    'facilitated': actionVerbs.includes('helped') ? 'helped' : 'helped'
+  };
+
+  // Enhanced descriptive word mappings
+  const descriptiveMappings = {
+    'successful': descriptiveWords.includes('good') ? 'good' : 'good',
+    'effective': descriptiveWords.includes('good') ? 'good' : 'good',
+    'appropriate': descriptiveWords.includes('good') ? 'good' : 'good',
+    'significant': descriptiveWords.includes('big') ? 'big' : 'big',
+    'optimal': descriptiveWords.includes('best') ? 'best' : 'good',
+    'efficiently': descriptiveWords.includes('well') ? 'well' : '',
+    'carefully': '',
+    'thoroughly': descriptiveWords.includes('well') ? 'well' : '',
+    'promptly': descriptiveWords.includes('quickly') ? 'quickly' : '',
+    'independently': 'himself',
+    'autonomously': 'himself',
+    'comprehensive': 'complete'
+  };
+
+  // Enhanced phrase mappings
+  const phraseMappings = {
+    'the individual': 'he',
+    'the participant': 'he',
+    'the client': 'he',
+    'demonstrated autonomy': 'did it himself',
+    'exhibited progress': 'got better',
+    'showed improvement': 'got better',
+    'engaged successfully': 'did well',
+    'completed independently': 'did it himself',
+    'proceeded to': 'went to',
+    'subsequently': 'then',
+    'following this': 'after that',
+    'upon completion': 'after he finished',
+    'designated laundry hamper': 'laundry basket',
+    'waste receptacle': 'garbage can',
+    'household refuse container': 'garbage bin',
+    'personal bathroom space': 'bathroom',
+    'morning routine': 'morning routine',
+    'verbal prompt': 'prompt',
+    'securing it tightly': 'putting it in',
+    'carefully gathering': 'getting',
+    'placing them into': 'putting them in'
+  };
+
+  // Advanced clinical-to-casual mappings
+  const advancedMappings = {
+    'facilitate': 'help',
+    'utilize': 'use',
+    'commence': 'start',
+    'conclude': 'finish',
+    'obtain': 'get',
+    'acquire': 'get',
+    'maintain': 'keep',
+    'ensure': 'make sure',
+    'provide': 'give',
+    'receive': 'get',
+    'accomplish': 'do',
+    'achieve': 'do',
+    'establish': 'set up',
+    'implement': 'do',
+    'coordinate': 'work with',
+    'collaborate': 'work with'
+  };
+
+  return {
+    ...actionMappings,
+    ...descriptiveMappings,
+    ...phraseMappings,
+    ...advancedMappings
+  };
+};
+
+// Analyze user's tone based on their actual vocabulary
+const analyzeUserTone = (writingStyle, vocabularyProfile) => {
+  const text = writingStyle.toLowerCase();
+
+  // Count formal vs casual indicators
+  const formalIndicators = [
+    'demonstrated', 'exhibited', 'participated', 'completed', 'initiated',
+    'individual', 'participant', 'client', 'appropriate', 'significant'
+  ];
+
+  const casualIndicators = [
+    'got', 'did', 'went', 'made', 'had', 'said', 'told', 'seemed',
+    'really', 'pretty', 'kind of', 'a bit', 'he would', 'she would'
+  ];
+
+  const formalCount = formalIndicators.filter(word => text.includes(word)).length;
+  const casualCount = casualIndicators.filter(word => text.includes(word)).length;
+
+  // Analyze sentence starters
+  const personalStarters = (text.match(/\b(he|she|they|chad|sarah|john)\s/g) || []).length;
+  const formalStarters = (text.match(/\b(the individual|the participant|the client)\s/g) || []).length;
+
+  // Determine overall tone
+  let overallTone;
+  let toneScore = 0; // -10 (very casual) to +10 (very formal)
+
+  toneScore += formalCount * 2;
+  toneScore -= casualCount * 2;
+  toneScore += formalStarters * 3;
+  toneScore -= personalStarters * 1;
+
+  if (toneScore > 5) {
+    overallTone = 'formal, professional tone';
+  } else if (toneScore < -3) {
+    overallTone = 'conversational, personal tone';
+  } else {
+    overallTone = 'balanced, approachable tone';
+  }
+
+  return {
+    overallTone,
+    toneScore,
+    formalCount,
+    casualCount,
+    personalStarters,
+    formalStarters,
+    prefersCasualLanguage: casualCount > formalCount,
+    usesPersonalPronouns: personalStarters > formalStarters
+  };
+};
+
+// Generate enhanced style preservation instructions using vocabulary profile
 const generateStylePreservationInstructions = (styleAnalysis) => {
-  return `
+  const vocab = styleAnalysis.vocabularyProfile;
+  const toneProfile = styleAnalysis.userToneProfile;
+
+  let instructions = `
 - SENTENCE STRUCTURE: Use ${styleAnalysis.sentenceStyle} (average ${styleAnalysis.avgSentenceLength} words per sentence)
 - VOCABULARY: Maintain ${styleAnalysis.vocabularyLevel}
 - PUNCTUATION: Follow ${styleAnalysis.punctuationStyle} patterns
-- TONE: Preserve ${styleAnalysis.tone}
+- TONE: Preserve ${styleAnalysis.tone}`;
+
+  // Add specific vocabulary instructions
+  if (vocab.actionVerbs.length > 0) {
+    instructions += `
+- PREFERRED ACTION VERBS: Use these verbs when possible: ${vocab.actionVerbs.slice(0, 8).join(', ')}`;
+  }
+
+  if (vocab.descriptiveWords.length > 0) {
+    instructions += `
+- PREFERRED DESCRIPTIVE WORDS: Use these descriptors: ${vocab.descriptiveWords.slice(0, 6).join(', ')}`;
+  }
+
+  if (vocab.transitions.length > 0) {
+    instructions += `
+- PREFERRED TRANSITIONS: Connect ideas using: ${vocab.transitions.slice(0, 5).join(', ')}`;
+  }
+
+  if (vocab.commonPhrases.length > 0) {
+    instructions += `
+- COMMON PHRASES: Incorporate these natural phrases when appropriate: ${vocab.commonPhrases.slice(0, 4).join(', ')}`;
+  }
+
+  if (vocab.naturalExpressions.length > 0) {
+    instructions += `
+- NATURAL EXPRESSIONS: Use these authentic expressions: ${vocab.naturalExpressions.slice(0, 3).join(', ')}`;
+  }
+
+  // Add tone-specific instructions
+  if (toneProfile.prefersCasualLanguage) {
+    instructions += `
+- CASUAL PREFERENCE: User prefers casual, conversational language over formal clinical terms`;
+  }
+
+  if (toneProfile.usesPersonalPronouns) {
+    instructions += `
+- PERSONAL STYLE: User prefers personal pronouns (he/she/they) over formal terms (individual/participant)`;
+  }
+
+  instructions += `
 - AUTHENTICITY: The generated content must sound like it was written by the same person who wrote the style sample
 - PERSONALITY: Maintain any unique expressions, professional preferences, or communication patterns evident in the sample`;
+
+  return instructions;
+};
+
+// Generate detail level instructions based on selected detail level
+const generateDetailLevelInstructions = (detailLevel) => {
+  switch (detailLevel) {
+    case 'brief':
+      return `
+DETAIL LEVEL: BRIEF (Concise and Essential)
+- Keep responses SHORT and CONCISE (2-4 sentences maximum)
+- Focus only on essential information and key points
+- Avoid unnecessary elaboration or extensive details
+- Target length: 30-60 words total
+- Maintain professional quality while being extremely concise
+- Include only the most critical observations or actions`;
+
+    case 'moderate':
+      return `
+DETAIL LEVEL: MODERATE (Balanced Detail)
+- Provide balanced detail with key context (1-2 short paragraphs)
+- Include important observations and relevant background
+- Target length: 60-120 words total
+- Balance brevity with necessary professional detail
+- Include context that supports the main points`;
+
+    case 'detailed':
+      return `
+DETAIL LEVEL: DETAILED (Comprehensive)
+- Provide comprehensive documentation with full context
+- Include detailed observations, background, and relevant details
+- Target length: 120-200 words total
+- Expand on context while maintaining authenticity
+- Include professional terminology and thorough documentation`;
+
+    case 'comprehensive':
+      return `
+DETAIL LEVEL: COMPREHENSIVE (Maximum Detail)
+- Provide extensive, thorough documentation with complete context
+- Include all relevant observations, background, and supporting details
+- Target length: 200+ words total
+- Maximum expansion while maintaining user's authentic style
+- Include comprehensive professional terminology and complete documentation`;
+
+    default:
+      return generateDetailLevelInstructions('brief');
+  }
 };
 
 // Generate tone adjustment instructions based on slider value (0-100)
 const generateToneInstructions = (toneLevel, styleAnalysis) => {
+  const vocab = styleAnalysis.vocabularyProfile;
+  const mappings = vocab?.vocabularyMappings || {};
+
   if (toneLevel < 25) {
-    // More Authentic (0-24)
-    return `
+    // More Authentic (0-24) - ENHANCED with specific vocabulary substitutions
+    let instructions = `
 TONE SETTING: MAXIMUM AUTHENTICITY (${toneLevel}/100)
-- Prioritize the user's natural writing patterns and personal expressions
-- Use conversational elements and personal touches from the writing style sample
-- Maintain informal professional language that feels natural and personal
-- Include personality quirks and unique phrasing patterns from the sample
-- Focus on sounding exactly like the user wrote it themselves
-- Allow for casual professional language and personal communication style`;
+- CRITICAL: Sound EXACTLY like the user wrote it themselves - this is the highest priority
+- Copy the user's specific word choices, phrases, and expressions from the writing sample
+- Mimic their exact sentence flow and rhythm patterns
+- Use their preferred terminology and avoid words they don't typically use
+- Replicate their punctuation habits and sentence structure preferences
+- Include their personality quirks, casual expressions, and unique communication style
+- Maintain their natural conversational tone even in professional contexts
+- Preserve any informal language patterns or colloquialisms they use
+- Focus on authenticity over formal clinical standards
+- The result should be indistinguishable from the user's own writing`;
+
+    // Add comprehensive vocabulary substitution instructions
+    if (Object.keys(mappings).length > 0) {
+      instructions += `
+
+CRITICAL VOCABULARY SUBSTITUTIONS FOR AUTHENTICITY:
+ALWAYS replace clinical/formal terms with user's natural language:`;
+
+      Object.entries(mappings).slice(0, 15).forEach(([clinical, natural]) => {
+        if (clinical !== natural && natural.length > 0) {
+          instructions += `
+- "${clinical}" → "${natural}"`;
+        }
+      });
+
+      instructions += `
+
+FORBIDDEN CLINICAL VOCABULARY:
+Never use these formal terms: "efficiently", "carefully", "thoroughly", "subsequently",
+"designated", "comprehensive", "facilitate", "utilize", "commence", "optimal", "appropriate"`;
+    }
+
+    // Add user's preferred expressions
+    if (vocab?.naturalExpressions?.length > 0) {
+      instructions += `
+
+USE THESE AUTHENTIC EXPRESSIONS:
+${vocab.naturalExpressions.slice(0, 5).map(expr => `- "${expr}"`).join('\n')}`;
+    }
+
+    // Add time pattern instructions if detected and user preference enabled
+    if (vocab?.timePatterns?.timeBasedNarrative && styleAnalysis.userPreferences?.useTimePatterns !== false) {
+      instructions += `
+
+TIME-BASED NARRATIVE PATTERN:
+- User writes with time markers: ${vocab.timePatterns.timeMarkers.slice(0, 3).join(', ')}
+- Use sequential time-based structure like the user's style
+- Format: "${vocab.timePatterns.timeFormat}" time format
+- Follow user's pattern: time + "Chad would" + action
+- Structure content chronologically with specific times when appropriate`;
+    }
+
+    return instructions;
   } else if (toneLevel < 50) {
-    // Balanced Authentic (25-49)
-    return `
+    // Balanced Authentic (25-49) - Enhanced with selective vocabulary substitutions
+    let instructions = `
 TONE SETTING: AUTHENTIC WITH PROFESSIONAL TOUCH (${toneLevel}/100)
 - Balance personal writing style with professional healthcare standards
 - Maintain the user's natural voice while ensuring clinical appropriateness
 - Use the user's preferred terminology but ensure professional clarity
 - Keep personal expressions while meeting documentation requirements
 - Blend authentic style with necessary professional elements`;
+
+    // Add selective vocabulary substitutions for balance
+    if (Object.keys(mappings).length > 0) {
+      instructions += `
+
+SELECTIVE VOCABULARY PREFERENCES:
+Prefer user's natural language when appropriate:`;
+
+      // Use only the most natural substitutions for balanced mode
+      const naturalMappings = Object.entries(mappings).filter(([clinical, natural]) =>
+        natural.length < clinical.length && clinical !== natural
+      ).slice(0, 4);
+
+      naturalMappings.forEach(([clinical, natural]) => {
+        instructions += `
+- Prefer "${natural}" over "${clinical}" when context allows`;
+      });
+    }
+
+    return instructions;
   } else if (toneLevel < 75) {
     // Balanced Professional (50-74)
     return `
@@ -238,7 +716,7 @@ TONE SETTING: MAXIMUM PROFESSIONAL CLINICAL STANDARD (${toneLevel}/100)
 
 // Legacy function for backward compatibility - now uses enhanced prompting by default
 const createPrompt = (sectionRequest, writingStyle, taskDescription = null) => {
-  return createEnhancedPrompt(sectionRequest, writingStyle, taskDescription, 'detailed');
+  return createEnhancedPrompt(sectionRequest, writingStyle, taskDescription, 'brief');
 };
 
 /**
@@ -305,8 +783,7 @@ router.post('/generate', validateGenerateNote, handleValidationErrors, async (re
       });
     }
 
-    // Initialize analytics service
-    const analyticsService = new WritingAnalyticsService(supabase);
+
 
     // Generate content for each section
     const generatedSections = [];
@@ -323,12 +800,19 @@ router.post('/generate', validateGenerateNote, handleValidationErrors, async (re
           taskDescription = task?.description;
         }
 
-        // Create the enhanced prompt with detailed level by default
+        // Get user preferences for detail level and tone level
+        const userPreferences = req.user?.preferences ? JSON.parse(req.user.preferences) : {};
+        const userDetailLevel = userPreferences.defaultDetailLevel || 'brief';
+        const userToneLevel = userPreferences.defaultToneLevel || 50;
+
+        // Create the enhanced prompt with user preferences
         const prompt = createEnhancedPrompt(
           sectionRequest,
           req.user.writingStyle,
           taskDescription,
-          'detailed'
+          userDetailLevel,
+          userToneLevel,
+          userPreferences
         );
 
         // Generate content with retry logic
@@ -386,24 +870,7 @@ router.post('/generate', validateGenerateNote, handleValidationErrors, async (re
           throw new Error('Failed to create note section');
         }
 
-        // Calculate initial confidence and style match scores
-        const confidenceScore = Math.min(0.9, 0.5 + (req.user.writingStyle.length / 3000) * 0.3);
-        const styleMatchScore = analyticsService.calculateStyleMatchScore(
-          generatedText.trim(),
-          req.user.writingStyle
-        );
 
-        // Log analytics for this generation
-        await analyticsService.logAnalytics({
-          userId,
-          noteId: note.id,
-          noteSectionId: section.id,
-          originalGenerated: generatedText.trim(),
-          confidenceScore,
-          tokensUsed,
-          generationTimeMs: generationTime,
-          styleMatchScore
-        });
 
         generatedSections.push(section);
         totalTokens += tokensUsed;
@@ -520,13 +987,19 @@ router.post('/regenerate-section', async (req, res) => {
       });
     }
 
-    // Create enhanced prompt for regeneration
+    // Create enhanced prompt for regeneration with user preferences
     const taskDescription = section.isp_tasks?.description;
+    const userPreferences = req.user?.preferences ? JSON.parse(req.user.preferences) : {};
+    const userDetailLevel = userPreferences.defaultDetailLevel || 'brief';
+    const userToneLevel = userPreferences.defaultToneLevel || 50;
+
     const prompt = createEnhancedPrompt(
       { prompt: newPrompt, type: taskDescription ? 'task' : 'general' },
       req.user.writingStyle,
       taskDescription,
-      'detailed'
+      userDetailLevel,
+      userToneLevel,
+      userPreferences
     );
 
     // Generate new content
@@ -566,26 +1039,7 @@ router.post('/regenerate-section', async (req, res) => {
       });
     }
 
-    // Initialize analytics service and log regeneration
-    const analyticsService = new WritingAnalyticsService(supabase);
-    const confidenceScore = Math.min(0.9, 0.5 + (req.user.writingStyle.length / 3000) * 0.3);
-    const styleMatchScore = analyticsService.calculateStyleMatchScore(
-      generatedText.trim(),
-      req.user.writingStyle
-    );
 
-    await analyticsService.logAnalytics({
-      userId,
-      noteId: section.note_id,
-      noteSectionId: sectionId,
-      originalGenerated: generatedText.trim(),
-      userEditedVersion: section.generated_content, // Previous version as "edited"
-      editType: 'complete_rewrite',
-      confidenceScore,
-      tokensUsed,
-      generationTimeMs: generationTime,
-      styleMatchScore
-    });
 
     // Deduct credit
     await supabase
@@ -630,7 +1084,12 @@ router.post('/regenerate-section', async (req, res) => {
  */
 router.post('/preview', async (req, res) => {
   try {
-    const { prompt, taskDescription, detailLevel = 'detailed', toneLevel = 50 } = req.body;
+    // Get user preferences for defaults
+    const userPreferences = req.user?.preferences ? JSON.parse(req.user.preferences) : {};
+    const defaultToneLevel = userPreferences.defaultToneLevel || 50;
+    const defaultDetailLevel = userPreferences.defaultDetailLevel || 'brief';
+
+    const { prompt, taskDescription, detailLevel = defaultDetailLevel, toneLevel = defaultToneLevel } = req.body;
     const userId = req.user.id;
 
     if (!prompt || !prompt.trim()) {
@@ -661,7 +1120,8 @@ router.post('/preview', async (req, res) => {
       writingStyle,
       taskDescription,
       detailLevel,
-      toneLevel
+      toneLevel,
+      userPreferences
     );
 
     // Generate preview content
@@ -683,14 +1143,6 @@ router.post('/preview', async (req, res) => {
 
     // Calculate style match score for preview
     let styleMatchScore = 85; // Default score for basic preview
-
-    if (!isBasicPreview) {
-      const analyticsService = new WritingAnalyticsService(supabaseAdmin);
-      styleMatchScore = Math.round(analyticsService.calculateStyleMatchScore(
-        generatedText.trim(),
-        writingStyle
-      ) * 100);
-    }
 
     res.json({
       success: true,

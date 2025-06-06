@@ -46,7 +46,7 @@ const userRoutes = require('./routes/user');
 const notesRoutes = require('./routes/notes');
 const ispTasksRoutes = require('./routes/ispTasks');
 const aiRoutes = require('./routes/ai');
-const writingAnalyticsRoutes = require('./routes/writingAnalytics');
+const ocrRoutes = require('./routes/ocr');
 
 // Phase 3 route handlers
 const organizationsRoutes = require('./routes/organizations');
@@ -208,7 +208,8 @@ const authenticateUser = async (req, res, next) => {
       tier: profile.tier,
       credits: profile.credits,
       hasCompletedSetup: profile.has_completed_setup,
-      writingStyle: profile.writing_style
+      writingStyle: profile.writing_style,
+      preferences: profile.preferences
     };
 
     next();
@@ -243,10 +244,7 @@ const usageControl = createUsageControlMiddleware({
 app.use('/api/ai', authenticateUser, aiGenerationLimiter, usageControl, aiRoutes);
 console.log('✅ AI routes configured');
 
-console.log('📊 Setting up writing analytics routes...');
-// Writing analytics routes
-app.use('/api/writing-analytics', authenticateUser, writingAnalyticsRoutes);
-console.log('✅ Writing analytics routes configured');
+
 
 console.log('📋 Setting up Phase 3 routes...');
 // Phase 3 routes
@@ -259,15 +257,10 @@ console.log('✅ Analytics routes configured');
 app.use('/api/admin', authenticateUser, adminRoutes);
 console.log('✅ Admin routes configured');
 
-console.log('📤 Setting up upload routes...');
-// Upload routes
-app.use('/api/upload', authenticateUser, uploadLimiter, (req, res) => {
-  res.json({
-    success: false,
-    error: 'OCR functionality not yet implemented'
-  });
-});
-console.log('✅ Upload routes configured');
+console.log('🔍 Setting up OCR routes...');
+// OCR routes with upload handling
+app.use('/api/ocr', authenticateUser, uploadLimiter, ocrRoutes);
+console.log('✅ OCR routes configured');
 
 console.log('🔧 Setting up monitoring routes...');
 // Admin and monitoring routes
