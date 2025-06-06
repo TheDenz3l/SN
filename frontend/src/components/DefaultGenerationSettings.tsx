@@ -153,7 +153,7 @@ const DefaultGenerationSettings: React.FC<DefaultGenerationSettingsProps> = memo
   // BULLETPROOF SAVE OPERATION - No external state interference
   const savePreferences = useCallback(async () => {
     if (!hasUnsavedChanges) {
-      toast.info('No changes to save');
+      toast('No changes to save');
       return;
     }
 

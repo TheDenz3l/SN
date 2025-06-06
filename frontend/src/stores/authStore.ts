@@ -245,7 +245,13 @@ export const useAuthStore = create<AuthState>()(
           const currentToken = get().token;
           if (currentToken) {
             try {
-              await authAPI.logout();
+              const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+              await fetch(`${apiUrl}/auth/logout`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${currentToken}`,
+                },
+              });
             } catch (backendError) {
               console.warn('Backend logout failed:', backendError);
               // Continue with Supabase logout even if backend fails

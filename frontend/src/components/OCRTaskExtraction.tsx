@@ -92,7 +92,7 @@ const OCRTaskExtraction: React.FC<OCRTaskExtractionProps> = ({
         if (result.data.tasks && result.data.tasks.length > 0) {
           toast.success(`Successfully extracted ${result.data.tasks.length} task${result.data.tasks.length !== 1 ? 's' : ''}`);
         } else {
-          toast.warning('No tasks were found in the image. You can add them manually.');
+          toast('No tasks were found in the image. You can add them manually.');
         }
       } else {
         console.error('❌ OCR processing failed:', result.error);
