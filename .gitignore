@@ -130,3 +130,24 @@ monitoring/logs/
 # Any sensitive configuration files
 config/secrets.json
 secrets/
+
+# Production environment files
+.env.production
+.env.staging
+
+# Additional security exclusions
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.cer
+*.der
+
+# IDE and editor files
+.vscode/settings.json
+.idea/
+
+# OS specific files
+.DS_Store
+Thumbs.db
