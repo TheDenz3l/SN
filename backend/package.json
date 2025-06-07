@@ -78,18 +78,33 @@
   "homepage": "https://github.com/your-org/swiftnotes#readme",
   "jest": {
     "testEnvironment": "node",
+    "setupFilesAfterEnv": ["<rootDir>/tests/setup.js"],
+    "testMatch": [
+      "<rootDir>/tests/**/*.test.js",
+      "<rootDir>/**/*.test.js"
+    ],
     "collectCoverageFrom": [
       "**/*.js",
       "!node_modules/**",
       "!coverage/**",
-      "!jest.config.js"
+      "!tests/**",
+      "!jest.config.js",
+      "!server.js"
     ],
     "coverageDirectory": "coverage",
     "coverageReporters": [
       "text",
       "lcov",
       "html"
-    ]
+    ],
+    "coverageThreshold": {
+      "global": {
+        "branches": 0,
+        "functions": 0,
+        "lines": 0,
+        "statements": 0
+      }
+    }
   },
   "eslintConfig": {
     "env": {
