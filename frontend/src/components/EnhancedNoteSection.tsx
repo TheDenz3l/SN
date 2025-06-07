@@ -17,6 +17,7 @@ import {
 import { aiAPI } from '../services/apiService';
 import { useAuthStore } from '../stores/authStore';
 import AutoResizeTextarea from './AutoResizeTextarea';
+import CostIndicator from './CostIndicator';
 import toast from 'react-hot-toast';
 
 interface EnhancedNoteSectionProps {
@@ -116,6 +117,12 @@ const EnhancedNoteSection: React.FC<EnhancedNoteSectionProps> = ({
       return;
     }
 
+    // Check if user has sufficient credits for Preview Enhanced (0.5 credits)
+    if (!user || user.credits < 0.5) {
+      toast.error('Insufficient credits. Preview Enhanced costs 0.5 credits.');
+      return;
+    }
+
     try {
       setIsGeneratingPreview(true);
 
@@ -129,12 +136,22 @@ const EnhancedNoteSection: React.FC<EnhancedNoteSectionProps> = ({
       if (result.success && result.preview) {
         setPreviewData(result.preview);
         setShowPreview(true);
+
+        // Update user credits in store
+        const creditsUsed = result.creditsUsed || 0.5;
+        useAuthStore.getState().updateUser({
+          credits: user.credits - creditsUsed
+        });
+
+        toast.success(`Preview generated! Used ${creditsUsed} credits.`);
       } else {
         // Handle specific error cases
         if (result.error && result.error.includes('complete your setup')) {
           toast.error('Please complete your setup first to use preview functionality', {
             duration: 5000
           });
+        } else if (result.error && result.error.includes('Insufficient credits')) {
+          toast.error('Insufficient credits for Preview Enhanced');
         } else {
           toast.error(result.error || 'Failed to generate preview');
         }
@@ -147,6 +164,8 @@ const EnhancedNoteSection: React.FC<EnhancedNoteSectionProps> = ({
         toast.error('Please complete your setup first to use preview functionality', {
           duration: 5000
         });
+      } else if (error instanceof Error && error.message.includes('Insufficient credits')) {
+        toast.error('Insufficient credits for Preview Enhanced');
       } else {
         toast.error('Failed to generate preview');
       }
@@ -393,24 +412,33 @@ const EnhancedNoteSection: React.FC<EnhancedNoteSectionProps> = ({
 
         {/* Preview Controls */}
         <div className="flex items-center space-x-3">
-          <button
-            onClick={generatePreview}
-            disabled={isGeneratingPreview || !section.prompt.trim()}
-            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isGeneratingPreview ? (
-              <>
-                <div className="animate-spin -ml-1 mr-2 h-4 w-4 border-2 border-primary-500 border-t-transparent rounded-full"></div>
-                Generating...
-              </>
-            ) : (
-              <>
-                <EyeIcon className="h-4 w-4 mr-2" />
-                Preview Enhanced
-              </>
-            )}
-          </button>
-          
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={generatePreview}
+              disabled={isGeneratingPreview || !section.prompt.trim() || !user || user.credits < 0.5}
+              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isGeneratingPreview ? (
+                <>
+                  <div className="animate-spin -ml-1 mr-2 h-4 w-4 border-2 border-primary-500 border-t-transparent rounded-full"></div>
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <EyeIcon className="h-4 w-4 mr-2" />
+                  Preview Enhanced
+                </>
+              )}
+            </button>
+
+            {/* Cost Indicator for Preview Enhanced */}
+            <CostIndicator
+              cost={0.5}
+              type="credits"
+              tooltip="Preview Enhanced provides AI-powered content preview with your personalized writing style. This helps you see how your prompt will be enhanced before generating the full note."
+            />
+          </div>
+
           {previewData && (
             <button
               onClick={() => setShowPreview(!showPreview)}

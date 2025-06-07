@@ -36,6 +36,8 @@ CREATE TABLE IF NOT EXISTS user_profiles (
     last_name TEXT,
     tier user_tier DEFAULT 'free',
     credits INTEGER DEFAULT 100,
+    free_generations_used INTEGER DEFAULT 0,
+    free_generations_reset_date DATE DEFAULT CURRENT_DATE,
     writing_style TEXT,
     has_completed_setup BOOLEAN DEFAULT FALSE,
     primary_organization_id UUID,

@@ -3,18 +3,37 @@
   "version": "1.0.0",
   "description": "SwiftNotes - AI-powered note-taking application",
   "scripts": {
-    "start": "node fix-and-start.js",
+    "start": "node robust-server-start.js start",
+    "stop": "node robust-server-start.js stop",
+    "restart": "node robust-server-start.js restart",
+    "status": "node robust-server-start.js status",
     "backend": "node start-backend.js",
     "test": "node test-fixes.js",
     "dev": "concurrently \"npm run backend\" \"cd frontend && npm run dev\"",
     "dev-auto": "node server-manager.js start",
     "dev-shell": "./start-dev.sh",
-    "stop": "node server-manager.js stop",
+    "dev-legacy": "node server-manager.js start",
+    "stop-legacy": "node server-manager.js stop",
     "stop-shell": "./stop-dev.sh",
-    "status": "node server-manager.js status",
+    "status-legacy": "node server-manager.js status",
     "fix": "node fix-and-start.js",
     "health": "curl -s http://localhost:3001/health || echo 'Backend not running'",
-    "servers": "echo '🚀 SwiftNotes Server Management:' && echo '  npm run dev-auto  - Start both servers (Node.js)' && echo '  npm run dev-shell - Start both servers (Shell)' && echo '  npm run stop      - Stop all servers' && echo '  npm run status    - Check server status' && echo '  npm run health    - Test backend health'"
+    "servers": "echo '🚀 SwiftNotes Server Management:' && echo '  npm start         - Start robust servers' && echo '  npm stop          - Stop all servers' && echo '  npm restart       - Restart servers' && echo '  npm run status    - Check server status' && echo '  npm run health    - Test backend health'",
+    "dev:persistent": "node persistent-dev-server.js start",
+    "dev:stop": "node persistent-dev-server.js stop",
+    "dev:restart": "node persistent-dev-server.js restart",
+    "dev:status": "node persistent-dev-server.js status",
+    "dev:pm2": "pm2 start ecosystem.config.js",
+    "dev:pm2:stop": "pm2 delete swiftnotes-backend swiftnotes-frontend",
+    "dev:pm2:restart": "pm2 restart swiftnotes-backend swiftnotes-frontend",
+    "dev:pm2:logs": "pm2 logs",
+    "dev:pm2:monit": "pm2 monit",
+    "health:monitor": "node health-monitor.js start",
+    "health:check": "node health-monitor.js check",
+    "health:status": "node health-monitor.js status",
+    "install:deps": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "setup:pm2": "npm install -g pm2",
+    "help": "echo '🚀 SwiftNotes Persistent Development Server:' && echo '' && echo 'Basic Commands:' && echo '  npm run dev:persistent  - Start persistent dev server' && echo '  npm run dev:stop        - Stop persistent dev server' && echo '  npm run dev:restart     - Restart persistent dev server' && echo '  npm run dev:status      - Check server status' && echo '' && echo 'PM2 Commands (Advanced):' && echo '  npm run dev:pm2         - Start with PM2' && echo '  npm run dev:pm2:stop    - Stop PM2 processes' && echo '  npm run dev:pm2:restart - Restart PM2 processes' && echo '  npm run dev:pm2:logs    - View PM2 logs' && echo '  npm run dev:pm2:monit   - PM2 monitoring dashboard' && echo '' && echo 'Health Monitoring:' && echo '  npm run health:monitor  - Start health monitor' && echo '  npm run health:check    - One-time health check' && echo '  npm run health:status   - View health status' && echo '' && echo 'Setup:' && echo '  npm run install:deps    - Install all dependencies' && echo '  npm run setup:pm2       - Install PM2 globally'"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.9",
@@ -23,6 +42,10 @@
     "node-fetch": "^2.7.0"
   },
   "devDependencies": {
-    "concurrently": "^7.6.0"
+    "concurrently": "^7.6.0",
+    "pm2": "^5.3.0",
+    "nodemon": "^3.0.2",
+    "chokidar": "^3.5.3",
+    "cross-env": "^7.0.3"
   }
 }

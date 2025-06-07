@@ -11,6 +11,8 @@ export interface UserProfile {
   last_name: string | null;
   tier: 'free' | 'paid' | 'premium';
   credits: number;
+  free_generations_used?: number;
+  free_generations_reset_date?: string;
   writing_style: string | null;
   has_completed_setup: boolean;
   preferences?: string | null; // JSON string from database
@@ -33,6 +35,8 @@ export interface User {
   lastName?: string;
   tier: 'free' | 'paid' | 'premium';
   credits: number;
+  freeGenerationsUsed?: number;
+  freeGenerationsResetDate?: string;
   hasCompletedSetup: boolean;
   writingStyle?: string;
   preferences?: UserPreferences;
@@ -145,6 +149,8 @@ export const useAuthStore = create<AuthState>()(
               lastName: result.user.lastName,
               tier: result.user.tier,
               credits: result.user.credits,
+              freeGenerationsUsed: result.user.freeGenerationsUsed || 0,
+              freeGenerationsResetDate: result.user.freeGenerationsResetDate,
               hasCompletedSetup: result.user.hasCompletedSetup,
               writingStyle: result.user.writingStyle,
               preferences: parsePreferences(result.user.preferences),
@@ -213,6 +219,8 @@ export const useAuthStore = create<AuthState>()(
               lastName: result.user.lastName,
               tier: result.user.tier,
               credits: result.user.credits,
+              freeGenerationsUsed: result.user.freeGenerationsUsed || 0,
+              freeGenerationsResetDate: result.user.freeGenerationsResetDate,
               hasCompletedSetup: result.user.hasCompletedSetup,
               writingStyle: result.user.writingStyle,
               preferences: parsePreferences(result.user.preferences),

@@ -9,17 +9,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { createClient } = require('@supabase/supabase-js');
 const router = express.Router();
 
-// Create a dedicated admin client for AI operations
-const supabaseAdmin = createClient(
-  process.env.SUPABASE_URL || 'https://ppavdpzulvosmmkzqtgy.supabase.co',
-  process.env.SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBwYXZkcHp1bHZvc21ta3pxdGd5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0ODk5MjMyMywiZXhwIjoyMDY0NTY4MzIzfQ.yHF0fEOLMNsUTdsztGfvHGsonournMGiojrn0MhpHXA',
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-);
+// Note: Supabase client is now provided via req.app.locals.supabase (using anon key for consistency)
 
 // Initialize Google Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY || '');
@@ -682,20 +672,63 @@ const createPrompt = (sectionRequest, writingStyle, taskDescription = null) => {
 
 /**
  * POST /api/ai/generate
- * Generate AI-powered note based on user input and writing style
+ * Generate AI-powered note content without saving (freemium model)
  */
 router.post('/generate', validateGenerateNote, handleValidationErrors, async (req, res) => {
   try {
-    // Use dedicated admin client for AI operations
-    const supabase = supabaseAdmin;
+    // Use consistent supabase client (anon key)
+    const supabase = req.app.locals.supabase;
     const userId = req.user.id;
-    const { title, sections } = req.body;
+    const { title, sections, saveNote = false } = req.body;
 
     // Check if user has completed setup
     if (!req.user.hasCompletedSetup || !req.user.writingStyle) {
       return res.status(400).json({
         success: false,
         error: 'Please complete your setup before generating notes'
+      });
+    }
+
+    // Get current user profile for freemium tracking (graceful handling of missing columns)
+    // Only select core columns to avoid issues with missing freemium columns during migration
+    const { data: userProfile, error: profileError } = await supabase
+      .from('user_profiles')
+      .select('credits, tier, created_at, updated_at')
+      .eq('user_id', userId)
+      .single();
+
+    if (profileError) {
+      console.error('User profile fetch error:', profileError);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to fetch user profile'
+      });
+    }
+
+    // Graceful handling of freemium features during migration period
+    // Default to 0 free generations used since columns don't exist yet
+    const today = new Date().toISOString().split('T')[0];
+    let freeGenerationsUsed = 0; // Default to 0 during migration
+
+    // Skip freemium reset logic during migration period
+    // This will be re-enabled once the database columns are added
+
+    // Calculate cost based on freemium model
+    const freeGenerationsPerCredit = 2;
+    const remainingFreeGenerations = Math.max(0, freeGenerationsPerCredit - freeGenerationsUsed);
+    const needsCredits = remainingFreeGenerations === 0;
+    const creditsRequired = needsCredits ? 1 : 0;
+
+    // Check if user has sufficient credits (only if needed)
+    if (needsCredits && userProfile.credits < creditsRequired) {
+      return res.status(402).json({
+        success: false,
+        error: 'Insufficient credits',
+        details: {
+          creditsRequired,
+          userCredits: userProfile.credits,
+          freeGenerationsRemaining: remainingFreeGenerations
+        }
       });
     }
 
@@ -722,26 +755,30 @@ router.post('/generate', validateGenerateNote, handleValidationErrors, async (re
       });
     }
 
-    // Create the note first
-    const { data: note, error: noteError } = await supabase
-      .from('notes')
-      .insert({
-        user_id: userId,
-        title,
-        content: { sections: sections.length },
-        note_type: 'task',
-        tokens_used: 0,
-        cost: 0
-      })
-      .select()
-      .single();
+    // Only create note if saveNote is true
+    let note = null;
+    if (saveNote) {
+      const { data: createdNote, error: noteError } = await supabase
+        .from('notes')
+        .insert({
+          user_id: userId,
+          title,
+          content: { sections: sections.length },
+          note_type: 'task',
+          tokens_used: 0,
+          cost: 0
+        })
+        .select()
+        .single();
 
-    if (noteError) {
-      console.error('Note creation error:', noteError);
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to create note'
-      });
+      if (noteError) {
+        console.error('Note creation error:', noteError);
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to create note'
+        });
+      }
+      note = createdNote;
     }
 
 
@@ -815,28 +852,41 @@ router.post('/generate', validateGenerateNote, handleValidationErrors, async (re
         const cost = calculateCost(tokensUsed);
         const generationTime = Date.now() - startTime;
 
-        // Create note section using dedicated admin client
-        const { data: section, error: sectionError } = await supabase
-          .from('note_sections')
-          .insert({
-            note_id: note.id,
-            isp_task_id: sectionRequest.taskId || null,
-            user_prompt: sectionRequest.prompt,
-            generated_content: generatedText.trim(),
-            is_edited: false,
-            tokens_used: tokensUsed
-          })
-          .select()
-          .single();
+        // Create note section only if saving
+        let section = null;
+        if (saveNote && note) {
+          const { data: createdSection, error: sectionError } = await supabase
+            .from('note_sections')
+            .insert({
+              note_id: note.id,
+              isp_task_id: sectionRequest.taskId || null,
+              user_prompt: sectionRequest.prompt,
+              generated_content: generatedText.trim(),
+              is_edited: false,
+              tokens_used: tokensUsed
+            })
+            .select()
+            .single();
 
-        if (sectionError) {
-          console.error('Section creation error:', sectionError);
-          throw new Error('Failed to create note section');
+          if (sectionError) {
+            console.error('Section creation error:', sectionError);
+            throw new Error('Failed to create note section');
+          }
+          section = createdSection;
         }
 
-
-
-        generatedSections.push(section);
+        // Return section data (with or without database ID)
+        generatedSections.push({
+          id: section?.id || null,
+          note_id: note?.id || null,
+          isp_task_id: sectionRequest.taskId || null,
+          user_prompt: sectionRequest.prompt,
+          generated_content: generatedText.trim(),
+          tokens_used: tokensUsed,
+          is_edited: false,
+          created_at: section?.created_at || new Date().toISOString(),
+          updated_at: section?.updated_at || new Date().toISOString()
+        });
         totalTokens += tokensUsed;
         totalCost += cost;
 
@@ -851,49 +901,70 @@ router.post('/generate', validateGenerateNote, handleValidationErrors, async (re
       }
     }
 
-    // Update note with total metrics
-    await supabase
-      .from('notes')
-      .update({
-        tokens_used: totalTokens,
-        cost: totalCost,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', note.id);
+    // Update note with total metrics (only if saved)
+    if (saveNote && note) {
+      await supabase
+        .from('notes')
+        .update({
+          tokens_used: totalTokens,
+          cost: totalCost,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', note.id);
+    }
 
-    // Deduct credits
-    const creditsUsed = Math.min(creditsNeeded, generatedSections.filter(s => !s.error).length);
-    await supabase
-      .from('user_profiles')
-      .update({
-        credits: req.user.credits - creditsUsed,
-        updated_at: new Date().toISOString()
-      })
-      .eq('user_id', userId);
+    // Update user credits and free generation tracking
+    const successfulSections = generatedSections.filter(s => !s.error).length;
+    let actualCreditsUsed = 0;
+    let newFreeGenerationsUsed = freeGenerationsUsed;
 
-    // Log credit transaction
-    await supabase
-      .from('user_credits')
-      .insert({
-        user_id: userId,
-        transaction_type: 'usage',
-        amount: -creditsUsed,
-        description: `Note generation: ${title}`,
-        reference_id: note.id
-      });
+    if (successfulSections > 0) {
+      if (needsCredits) {
+        // Use credits
+        actualCreditsUsed = creditsRequired;
+        await supabase
+          .from('user_profiles')
+          .update({
+            credits: userProfile.credits - actualCreditsUsed,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', userId);
+      } else {
+        // Use free generation - skip database update during migration period
+        // This will be re-enabled once freemium columns are added to the database
+        newFreeGenerationsUsed = freeGenerationsUsed + 1;
+        console.log('Free generation used (migration mode - not updating database)');
+      }
+
+      // Log transaction (only if credits were used)
+      if (actualCreditsUsed > 0) {
+        await supabase
+          .from('user_credits')
+          .insert({
+            user_id: userId,
+            transaction_type: 'usage',
+            amount: -actualCreditsUsed,
+            description: saveNote ? `Note generation: ${title}` : `Note generation (preview): ${title}`,
+            reference_id: note?.id || null
+          });
+      }
+    }
 
     res.json({
       success: true,
-      message: 'Note generated successfully',
-      note: {
+      message: saveNote ? 'Note generated and saved successfully' : 'Note generated successfully',
+      note: saveNote ? {
         ...note,
         tokens_used: totalTokens,
         cost: totalCost
-      },
+      } : null,
       sections: generatedSections,
       totalTokens,
       totalCost,
-      creditsUsed
+      creditsUsed: actualCreditsUsed,
+      freeGenerationsRemaining: Math.max(0, freeGenerationsPerCredit - newFreeGenerationsUsed),
+      usedFreeGeneration: !needsCredits,
+      saved: saveNote
     });
 
   } catch (error) {
@@ -912,8 +983,8 @@ router.post('/generate', validateGenerateNote, handleValidationErrors, async (re
 router.post('/regenerate-section', async (req, res) => {
   try {
     const { sectionId, newPrompt } = req.body;
-    // Use dedicated admin client for AI operations
-    const supabase = supabaseAdmin;
+    // Use consistent supabase client (anon key)
+    const supabase = req.app.locals.supabase;
     const userId = req.user.id;
     const startTime = Date.now();
 
@@ -1044,7 +1115,7 @@ router.post('/regenerate-section', async (req, res) => {
 
 /**
  * POST /api/ai/preview
- * Generate a preview of enhanced content without saving
+ * Generate a preview of enhanced content (costs 0.5 credits)
  */
 router.post('/preview', async (req, res) => {
   try {
@@ -1055,6 +1126,19 @@ router.post('/preview', async (req, res) => {
 
     const { prompt, taskDescription, detailLevel = defaultDetailLevel, toneLevel = defaultToneLevel } = req.body;
     const userId = req.user.id;
+
+    // Check user credits for Preview Enhanced (costs 0.5 credits)
+    const previewCost = 0.5;
+    if (req.user.credits < previewCost) {
+      return res.status(402).json({
+        success: false,
+        error: 'Insufficient credits for Preview Enhanced',
+        details: {
+          creditsRequired: previewCost,
+          userCredits: req.user.credits
+        }
+      });
+    }
 
     if (!prompt || !prompt.trim()) {
       return res.status(400).json({
@@ -1108,6 +1192,26 @@ router.post('/preview', async (req, res) => {
     // Calculate style match score for preview
     let styleMatchScore = 85; // Default score for basic preview
 
+    // Deduct credits for Preview Enhanced
+    await req.app.locals.supabase
+      .from('user_profiles')
+      .update({
+        credits: req.user.credits - previewCost,
+        updated_at: new Date().toISOString()
+      })
+      .eq('user_id', userId);
+
+    // Log credit transaction
+    await req.app.locals.supabase
+      .from('user_credits')
+      .insert({
+        user_id: userId,
+        transaction_type: 'usage',
+        amount: -previewCost,
+        description: 'Preview Enhanced',
+        reference_id: null
+      });
+
     res.json({
       success: true,
       preview: {
@@ -1123,7 +1227,8 @@ router.post('/preview', async (req, res) => {
           styleMatchScore,
           expansionRatio: Math.round((generatedText.trim().length / prompt.trim().length) * 10) / 10
         }
-      }
+      },
+      creditsUsed: previewCost
     });
 
   } catch (error) {
@@ -1131,6 +1236,88 @@ router.post('/preview', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to generate preview'
+    });
+  }
+});
+
+/**
+ * POST /api/ai/save-note
+ * Save a previously generated note to user's account
+ */
+router.post('/save-note', async (req, res) => {
+  try {
+    const supabase = req.app.locals.supabase;
+    const userId = req.user.id;
+    const { title, sections } = req.body;
+
+    if (!title || !sections || !Array.isArray(sections)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Title and sections are required'
+      });
+    }
+
+    // Create the note
+    const { data: note, error: noteError } = await supabase
+      .from('notes')
+      .insert({
+        user_id: userId,
+        title,
+        content: { sections: sections.length },
+        note_type: 'task',
+        tokens_used: sections.reduce((total, section) => total + (section.tokens_used || 0), 0),
+        cost: 0 // Cost already deducted during generation
+      })
+      .select()
+      .single();
+
+    if (noteError) {
+      console.error('Note creation error:', noteError);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to create note'
+      });
+    }
+
+    // Save all sections
+    const sectionsToSave = sections.map(section => ({
+      note_id: note.id,
+      isp_task_id: section.isp_task_id || null,
+      user_prompt: section.user_prompt,
+      generated_content: section.generated_content,
+      tokens_used: section.tokens_used || 0,
+      is_edited: section.is_edited || false
+    }));
+
+    const { data: savedSections, error: sectionsError } = await supabase
+      .from('note_sections')
+      .insert(sectionsToSave)
+      .select();
+
+    if (sectionsError) {
+      console.error('Sections save error:', sectionsError);
+      // Clean up the note if sections failed to save
+      await supabase.from('notes').delete().eq('id', note.id);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to save note sections'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Note saved successfully',
+      note: {
+        ...note,
+        sections: savedSections
+      }
+    });
+
+  } catch (error) {
+    console.error('Save note error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to save note'
     });
   }
 });

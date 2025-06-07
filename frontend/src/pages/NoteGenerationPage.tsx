@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ExclamationTriangleIcon, CogIcon } from '@heroicons/react/24/outline';
+import { ExclamationTriangleIcon, CogIcon, BookmarkIcon } from '@heroicons/react/24/outline';
 import { useAuthStore } from '../stores/authStore';
 import { noteService } from '../services/noteService';
+import { aiAPI } from '../services/apiService';
 import EnhancedNoteSection from '../components/EnhancedNoteSection';
+import CostIndicator from '../components/CostIndicator';
 import type { ISPTask, GenerateNoteRequest } from '../services/noteService';
 import toast from 'react-hot-toast';
 
@@ -30,14 +32,26 @@ const NoteGenerationPage: React.FC = () => {
   const [sections, setSections] = useState<SectionData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [hasGeneratedContent, setHasGeneratedContent] = useState(false);
+  const [freeGenerationsRemaining, setFreeGenerationsRemaining] = useState(2);
   const [, setGeneratedNoteId] = useState<string | null>(null);
 
-  // Load user's ISP tasks on component mount
+  // Load user's ISP tasks on component mount and calculate free generations
   useEffect(() => {
     if (user?.id) {
       loadISPTasks();
+      calculateFreeGenerations();
     }
   }, [user?.id]);
+
+  const calculateFreeGenerations = () => {
+    if (!user) return;
+
+    const freeGenerationsUsed = user.freeGenerationsUsed || 0;
+    const remaining = Math.max(0, 2 - freeGenerationsUsed);
+    setFreeGenerationsRemaining(remaining);
+  };
 
   const loadISPTasks = async () => {
     if (!user?.id) return;
@@ -117,39 +131,39 @@ const NoteGenerationPage: React.FC = () => {
       return;
     }
 
+    // Check if user has sufficient credits or free generations
+    const needsCredits = freeGenerationsRemaining === 0;
+    if (needsCredits && user.credits < 1) {
+      toast.error('Insufficient credits. You need 1 credit to generate a note.');
+      return;
+    }
+
     try {
       setIsGenerating(true);
 
-      const request: GenerateNoteRequest = {
+      // Generate note without saving (saveNote: false)
+      const result = await aiAPI.generateNote({
         title: noteTitle.trim(),
         sections: validSections.map(section => ({
           taskId: section.taskId,
           prompt: section.prompt.trim(),
           type: section.type,
-          // Include section-specific settings for identical functionality to Preview Enhanced
           detailLevel: section.detailLevel || 'brief',
           toneLevel: section.toneLevel || 50
-        }))
-      };
+        })),
+        saveNote: false // Don't save automatically
+      });
 
-      const result = await noteService.generateNote(request);
-
-      // Store the generated note ID for analytics
-      if (result?.note?.id) {
-        setGeneratedNoteId(result.note.id);
-      }
-
-      // Update sections with generated content and analytics data
+      // Update sections with generated content (no database IDs)
       setSections(prev => prev.map(section => {
         const generatedSection = result.sections?.find(s =>
           s.user_prompt === section.prompt.trim()
         );
 
-        if (generatedSection?.id && generatedSection.generated_content) {
+        if (generatedSection && generatedSection.generated_content) {
           return {
             ...section,
             generated: generatedSection.generated_content,
-            sectionId: generatedSection.id,
             originalGenerated: generatedSection.generated_content,
             isEdited: false,
             tokensUsed: generatedSection.tokens_used || 0
@@ -159,20 +173,118 @@ const NoteGenerationPage: React.FC = () => {
         return section;
       }));
 
-      toast.success(`Note generated successfully! Used ${result.creditsUsed} credits.`);
+      setHasGeneratedContent(true);
 
-      // Update user credits in store
-      if (user.credits !== undefined) {
+      // Update user credits and free generations in store
+      const creditsUsed = result.creditsUsed || 0;
+      const usedFreeGeneration = result.usedFreeGeneration || false;
+      const newFreeGenerationsRemaining = result.freeGenerationsRemaining || 0;
+
+      if (usedFreeGeneration) {
+        toast.success(`Note generated successfully! Used 1 free generation (${newFreeGenerationsRemaining} remaining).`);
+        setFreeGenerationsRemaining(newFreeGenerationsRemaining);
         useAuthStore.getState().updateUser({
-          credits: user.credits - result.creditsUsed
+          freeGenerationsUsed: (user.freeGenerationsUsed || 0) + 1
+        });
+      } else {
+        toast.success(`Note generated successfully! Used ${creditsUsed} credits.`);
+        useAuthStore.getState().updateUser({
+          credits: user.credits - creditsUsed
         });
       }
 
     } catch (error: any) {
       console.error('Error generating note:', error);
-      toast.error(error.message || 'Failed to generate note');
+
+      // Handle specific error types with appropriate user feedback
+      if (error.message.includes('Insufficient credits')) {
+        toast.error('Insufficient credits. Please purchase more credits to continue.');
+      } else if (error.code === 'PROFILE_FETCH_ERROR') {
+        if (error.retryable) {
+          toast.error('Unable to load your profile. Please refresh the page and try again.', {
+            duration: 6000
+          });
+        } else {
+          toast.error('Profile data error. Please contact support if this persists.', {
+            duration: 8000
+          });
+        }
+      } else if (error.code === 'PROFILE_NOT_FOUND') {
+        toast.error('Your profile was not found. Please try logging out and back in.', {
+          duration: 6000
+        });
+      } else if (error.code === 'TOKEN_EXPIRED' || error.code === 'INVALID_TOKEN') {
+        toast.error('Your session has expired. Please log in again.', {
+          duration: 6000
+        });
+        // Redirect to login after a short delay
+        setTimeout(() => {
+          useAuthStore.getState().logout();
+        }, 2000);
+      } else if (error.code === 'AUTH_SERVICE_ERROR') {
+        toast.error('Authentication service is temporarily unavailable. Please try again in a moment.', {
+          duration: 6000
+        });
+      } else if (error.message.includes('setup')) {
+        toast.error('Please complete your setup before generating notes.', {
+          duration: 5000
+        });
+      } else {
+        toast.error(error.message || 'Failed to generate note. Please try again.');
+      }
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const saveNote = async () => {
+    if (!hasGeneratedContent) {
+      toast.error('Please generate a note first');
+      return;
+    }
+
+    const sectionsWithContent = sections.filter(section => section.generated);
+    if (sectionsWithContent.length === 0) {
+      toast.error('No generated content to save');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+
+      const result = await aiAPI.saveNote({
+        title: noteTitle.trim(),
+        sections: sectionsWithContent.map(section => ({
+          isp_task_id: section.taskId || null,
+          user_prompt: section.prompt,
+          generated_content: section.generated!,
+          tokens_used: section.tokensUsed || 0,
+          is_edited: section.isEdited || false
+        }))
+      });
+
+      if (result.success) {
+        toast.success('Note saved successfully!');
+        setGeneratedNoteId(result.note.id);
+
+        // Update sections with database IDs
+        setSections(prev => prev.map((section, index) => {
+          const savedSection = result.note.sections[index];
+          if (savedSection && section.generated) {
+            return {
+              ...section,
+              sectionId: savedSection.id
+            };
+          }
+          return section;
+        }));
+      }
+
+    } catch (error: any) {
+      console.error('Error saving note:', error);
+      toast.error(error.message || 'Failed to save note');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -294,25 +406,78 @@ const NoteGenerationPage: React.FC = () => {
             </button>
           </div>
 
-          {/* Generate Button */}
-          <div className="mt-8 flex justify-end">
-            <button
-              onClick={generateNote}
-              disabled={isGenerating || !noteTitle.trim() || sections.every(s => !s.prompt.trim())}
-              className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isGenerating ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Generating...
-                </>
-              ) : (
-                'Generate Note'
+          {/* Generate and Save Buttons */}
+          <div className="mt-8 flex items-center justify-between">
+            {/* User Credits Display */}
+            <div className="text-sm text-gray-600">
+              <span className="font-medium">{user?.credits || 0} credits available</span>
+            </div>
+
+            <div className="flex items-center space-x-4">
+              {/* Generate Button with Cost Indicator */}
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={generateNote}
+                  disabled={isGenerating || !noteTitle.trim() || sections.every(s => !s.prompt.trim())}
+                  className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isGenerating ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Generating...
+                    </>
+                  ) : (
+                    'Generate Note'
+                  )}
+                </button>
+
+                {/* Cost Indicator for Generate Note */}
+                <CostIndicator
+                  cost={freeGenerationsRemaining > 0 ? 'Free' : 1}
+                  type={freeGenerationsRemaining > 0 ? 'free' : 'credits'}
+                  remaining={freeGenerationsRemaining}
+                  total={2}
+                  tooltip={
+                    freeGenerationsRemaining > 0
+                      ? `You have ${freeGenerationsRemaining} free generations remaining. After that, each generation costs 1 credit.`
+                      : 'Each note generation costs 1 credit. You get 2 free generations per credit.'
+                  }
+                />
+              </div>
+
+              {/* Save Note Button (only show after generation) */}
+              {hasGeneratedContent && (
+                <div className="flex items-center space-x-3">
+                  <button
+                    onClick={saveNote}
+                    disabled={isSaving}
+                    className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSaving ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <BookmarkIcon className="h-5 w-5 mr-2" />
+                        Save Note
+                      </>
+                    )}
+                  </button>
+
+                  <span className="text-sm text-gray-500">
+                    Save to your notes history
+                  </span>
+                </div>
               )}
-            </button>
+            </div>
           </div>
         </div>
       </div>

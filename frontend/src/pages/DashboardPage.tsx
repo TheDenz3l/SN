@@ -11,8 +11,70 @@ import {
   ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '../stores/authStore';
-import dashboardAnalyticsService, { type DashboardAnalytics } from '../services/dashboardAnalyticsService';
+import { analyticsAPI } from '../services/apiService';
 import toast from 'react-hot-toast';
+
+// Define the analytics interface locally since we're switching from the separate service
+interface DashboardAnalytics {
+  summary: {
+    totalNotes: number;
+    notesGenerated: number;
+    creditsUsed: number;
+    timeSavedHours: number;
+  };
+  trends: {
+    notesChange: number;
+    creditsChange: number;
+    timeSavedChange: number;
+  };
+  recentActivity: Array<{
+    id: string;
+    title: string;
+    type: string;
+    createdAt: string;
+  }>;
+}
+
+// Helper functions for formatting
+const formatChange = (change: number): { text: string; type: 'increase' | 'decrease' | 'neutral' } => {
+  if (change > 0) {
+    return { text: `+${change}%`, type: 'increase' };
+  } else if (change < 0) {
+    return { text: `${change}%`, type: 'decrease' };
+  } else {
+    return { text: '0%', type: 'neutral' };
+  }
+};
+
+const formatTimeSaved = (hours: number): string => {
+  if (hours < 1) {
+    return `${Math.round(hours * 60)} min`;
+  } else if (hours < 10) {
+    return `${hours.toFixed(1)} hrs`;
+  } else {
+    return `${Math.round(hours)} hrs`;
+  }
+};
+
+const formatActivityDate = (dateString: string): { date: string; time: string } => {
+  const date = new Date(dateString);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  let dateText: string;
+  if (date.toDateString() === today.toDateString()) {
+    dateText = 'Today';
+  } else if (date.toDateString() === yesterday.toDateString()) {
+    dateText = 'Yesterday';
+  } else {
+    dateText = date.toLocaleDateString();
+  }
+
+  const timeText = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  return { date: dateText, time: timeText };
+};
 
 const DashboardPage: React.FC = () => {
   const { user, getUserDisplayName } = useAuthStore();
@@ -25,14 +87,14 @@ const DashboardPage: React.FC = () => {
     if (showRefreshToast) setIsRefreshing(true);
 
     try {
-      const result = await dashboardAnalyticsService.getDashboardAnalytics('month');
-      if (result.success && result.analytics) {
+      const result = await analyticsAPI.getDashboard('month');
+      if (result.analytics) {
         setAnalytics(result.analytics);
         if (showRefreshToast) {
           toast.success('Dashboard data refreshed');
         }
       } else {
-        console.error('Failed to load analytics:', result.error);
+        console.error('Failed to load analytics: No analytics data returned');
         if (showRefreshToast) {
           toast.error('Failed to refresh dashboard data');
         }
@@ -87,9 +149,9 @@ const DashboardPage: React.FC = () => {
       ];
     }
 
-    const timeSavedFormatted = dashboardAnalyticsService.formatTimeSaved(analytics.summary.timeSavedHours);
-    const notesChange = dashboardAnalyticsService.formatChange(analytics.trends.notesChange);
-    const timeSavedChange = dashboardAnalyticsService.formatChange(analytics.trends.timeSavedChange);
+    const timeSavedFormatted = formatTimeSaved(analytics.summary.timeSavedHours);
+    const notesChange = formatChange(analytics.trends.notesChange);
+    const timeSavedChange = formatChange(analytics.trends.timeSavedChange);
 
     return [
       {
@@ -155,7 +217,7 @@ const DashboardPage: React.FC = () => {
     if (!analytics?.recentActivity) return [];
 
     return analytics.recentActivity.slice(0, 5).map(activity => {
-      const { date, time } = dashboardAnalyticsService.formatActivityDate(activity.createdAt);
+      const { date, time } = formatActivityDate(activity.createdAt);
       return {
         id: activity.id,
         title: activity.title,

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../stores/authStore';
-import { notesAPI, userAPI } from '../services/apiService';
+import { notesAPI, userAPI, ispTasksAPI, aiAPI } from '../services/apiService';
 import {
   MagnifyingGlassIcon,
   DocumentArrowDownIcon,
@@ -13,7 +13,12 @@ import {
   CheckIcon,
   ArrowDownTrayIcon,
   Squares2X2Icon,
-  ListBulletIcon
+  ListBulletIcon,
+  ClipboardDocumentIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  PencilIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
@@ -33,7 +38,14 @@ interface Note {
     is_edited: boolean;
     tokens_used?: number;
     created_at: string;
+    isp_task_id?: string | null;
   }>;
+}
+
+interface ISPTask {
+  id: string;
+  description: string;
+  structured_data?: any;
 }
 
 interface NotesResponse {
@@ -80,14 +92,226 @@ interface UsageStats {
   }>;
 }
 
-// Component to display note content based on its structure
-const NoteContentDisplay: React.FC<{ selectedNote: Note }> = ({ selectedNote }) => {
-  // If note has sections array (new format)
+// Helper function to attempt legacy note migration
+const attemptLegacyNoteMigration = async (noteId: string, legacyContent: any): Promise<boolean> => {
+  try {
+    // Only attempt migration if we have meaningful content to migrate
+    if (!legacyContent || typeof legacyContent !== 'object') {
+      return false;
+    }
+
+    // Check if there's content that can be migrated
+    const migratableContent = legacyContent.content || legacyContent.text || legacyContent.body;
+    if (!migratableContent || typeof migratableContent !== 'string') {
+      return false;
+    }
+
+    console.log('🔄 Attempting to migrate legacy note:', noteId);
+
+    // Create a section from the legacy content
+    const migrationSection = {
+      isp_task_id: null,
+      user_prompt: 'Migrated from legacy format',
+      generated_content: migratableContent,
+      tokens_used: 0,
+      is_edited: false
+    };
+
+    // Use the AI API to save the migrated note
+    const response = await aiAPI.saveNote({
+      title: `Migrated Note ${noteId.substring(0, 8)}`,
+      sections: [migrationSection]
+    });
+
+    if (response && response.note) {
+      console.log('✅ Successfully migrated legacy note');
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    console.error('❌ Failed to migrate legacy note:', error);
+    return false;
+  }
+};
+
+// Enhanced Note Content Display Component with ISP Task Source, Copy Buttons, and Editing
+const EnhancedNoteContentDisplay: React.FC<{ selectedNote: Note }> = ({ selectedNote }) => {
+  const [ispTasks, setIspTasks] = useState<{ [key: string]: ISPTask }>({});
+  const [expandedSections, setExpandedSections] = useState<{ [key: string]: boolean }>({});
+  const [editingSections, setEditingSections] = useState<{ [key: string]: boolean }>({});
+  const [editedContent, setEditedContent] = useState<{ [key: string]: string }>({});
+  const [copyFeedback, setCopyFeedback] = useState<{ [key: string]: string | null }>({});
+  const [migrating, setMigrating] = useState(false);
+
+  // DEBUG: Log the note data to help identify issues
+  console.log('🔍 EnhancedNoteContentDisplay - Note Data:', {
+    noteId: selectedNote.id,
+    title: selectedNote.title,
+    hasSections: !!(selectedNote.sections && selectedNote.sections.length > 0),
+    sectionsCount: selectedNote.sections ? selectedNote.sections.length : 0,
+    sectionsData: selectedNote.sections,
+    hasLegacyContent: !!(selectedNote.content && typeof selectedNote.content === 'object' && selectedNote.content.sections),
+    contentData: selectedNote.content,
+    contentType: typeof selectedNote.content,
+    rawNote: selectedNote
+  });
+
+  // ENHANCED DEBUG: Log the exact conditions being checked
+  console.log('🔍 ENHANCED DEBUG - Condition Checks:', {
+    'Priority 1 - Has Sections': selectedNote.sections && selectedNote.sections.length > 0,
+    'Priority 2 - Legacy Content': selectedNote.content && typeof selectedNote.content === 'object' && (!selectedNote.sections || selectedNote.sections.length === 0),
+    'Priority 3 - String Content': typeof selectedNote.content === 'string',
+    'Priority 4 - Other Content': !!selectedNote.content,
+    'Final Fallback': !selectedNote.content
+  });
+
+  // Fetch ISP tasks for sections that have isp_task_id
+  useEffect(() => {
+    const fetchISPTasks = async () => {
+      if (!selectedNote.sections) return;
+
+      const taskIds = selectedNote.sections
+        .filter(section => section.isp_task_id)
+        .map(section => section.isp_task_id!)
+        .filter((id, index, arr) => arr.indexOf(id) === index); // Remove duplicates
+
+      if (taskIds.length === 0) return;
+
+      try {
+        const result = await ispTasksAPI.getTasks();
+        const tasksMap: { [key: string]: ISPTask } = {};
+
+        if (result.tasks) {
+          result.tasks.forEach((task: ISPTask) => {
+            if (taskIds.includes(task.id)) {
+              tasksMap[task.id] = task;
+            }
+          });
+        }
+
+        setIspTasks(tasksMap);
+      } catch (error) {
+        console.error('Failed to fetch ISP tasks:', error);
+      }
+    };
+
+    fetchISPTasks();
+  }, [selectedNote.sections]);
+
+  // Handle copy functionality
+  const handleCopyContent = async (content: string, sectionId: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopyFeedback(prev => ({ ...prev, [sectionId]: 'Copied!' }));
+      setTimeout(() => {
+        setCopyFeedback(prev => ({ ...prev, [sectionId]: null }));
+      }, 2000);
+    } catch (err) {
+      setCopyFeedback(prev => ({ ...prev, [sectionId]: 'Failed to copy' }));
+      setTimeout(() => {
+        setCopyFeedback(prev => ({ ...prev, [sectionId]: null }));
+      }, 2000);
+    }
+  };
+
+  // Handle section editing
+  const startEditing = (sectionId: string, currentContent: string) => {
+    setEditingSections(prev => ({ ...prev, [sectionId]: true }));
+    setEditedContent(prev => ({ ...prev, [sectionId]: currentContent }));
+  };
+
+  const cancelEditing = (sectionId: string) => {
+    setEditingSections(prev => ({ ...prev, [sectionId]: false }));
+    setEditedContent(prev => ({ ...prev, [sectionId]: '' }));
+  };
+
+  const saveEditing = async (sectionId: string) => {
+    const newContent = editedContent[sectionId];
+    if (!newContent || newContent.trim() === '') {
+      toast.error('Content cannot be empty');
+      return;
+    }
+
+    try {
+      // Call API to update note section
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/notes/sections/${sectionId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          generated_content: newContent.trim(),
+          is_edited: true
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update section');
+      }
+
+      // Update the local state
+      if (selectedNote.sections) {
+        const sectionIndex = selectedNote.sections.findIndex(s => s.id === sectionId);
+        if (sectionIndex !== -1) {
+          selectedNote.sections[sectionIndex].generated_content = newContent.trim();
+          selectedNote.sections[sectionIndex].is_edited = true;
+        }
+      }
+
+      setEditingSections(prev => ({ ...prev, [sectionId]: false }));
+      setEditedContent(prev => ({ ...prev, [sectionId]: '' }));
+      toast.success('Content updated successfully');
+    } catch (error) {
+      console.error('Failed to save content:', error);
+      toast.error('Failed to save content');
+    }
+  };
+
+  // Toggle ISP task source visibility
+  const toggleISPTaskSource = (sectionId: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [sectionId]: !prev[sectionId]
+    }));
+  };
+
+  // Handle legacy note migration
+  const handleMigrateLegacyNote = async () => {
+    if (!selectedNote.content || typeof selectedNote.content !== 'object') {
+      toast.error('No content available to migrate');
+      return;
+    }
+
+    setMigrating(true);
+    try {
+      const success = await attemptLegacyNoteMigration(selectedNote.id, selectedNote.content);
+      if (success) {
+        toast.success('Note migrated successfully! Please refresh the page to see the updated note.');
+      } else {
+        toast.error('Unable to migrate this note - no suitable content found');
+      }
+    } catch (error) {
+      console.error('Migration error:', error);
+      toast.error('Failed to migrate note');
+    } finally {
+      setMigrating(false);
+    }
+  };
+
+  // PRIORITY 1: If note has sections array (new format) - this should be checked FIRST
+  console.log('🔍 Checking PRIORITY 1: sections array', {
+    hasSections: !!(selectedNote.sections && selectedNote.sections.length > 0),
+    sections: selectedNote.sections
+  });
+
   if (selectedNote.sections && selectedNote.sections.length > 0) {
+    console.log('✅ PRIORITY 1 MET: Displaying NEW FORMAT with sections');
     return (
       <div className="space-y-6">
         {selectedNote.sections.map((section, index) => (
-          <div key={section.id} className="border-b border-gray-200 pb-4 last:border-b-0">
+          <div key={section.id} className="border border-gray-200 rounded-lg p-4 bg-white">
             <div className="flex items-center justify-between mb-3">
               <h5 className="text-sm font-semibold text-gray-900">
                 Section {index + 1}
@@ -104,6 +328,39 @@ const NoteContentDisplay: React.FC<{ selectedNote: Note }> = ({ selectedNote }) 
               </div>
             </div>
 
+            {/* ISP Task Source Section */}
+            {section.isp_task_id && ispTasks[section.isp_task_id] && (
+              <div className="mb-4">
+                <button
+                  onClick={() => toggleISPTaskSource(section.id)}
+                  className="flex items-center text-xs font-medium text-indigo-600 hover:text-indigo-800 mb-2"
+                >
+                  {expandedSections[section.id] ? (
+                    <ChevronDownIcon className="h-3 w-3 mr-1" />
+                  ) : (
+                    <ChevronRightIcon className="h-3 w-3 mr-1" />
+                  )}
+                  ISP Task Source
+                </button>
+
+                {expandedSections[section.id] && (
+                  <div className="text-sm text-gray-700 bg-indigo-50 p-3 rounded border-l-4 border-indigo-400 mb-3">
+                    <p className="font-medium text-indigo-900 mb-1">Original ISP Task:</p>
+                    <p className="text-indigo-800">{ispTasks[section.isp_task_id].description}</p>
+                    {ispTasks[section.isp_task_id].structured_data && (
+                      <div className="mt-2 text-xs text-indigo-700">
+                        <p className="font-medium">Additional Context:</p>
+                        <pre className="mt-1 whitespace-pre-wrap">
+                          {JSON.stringify(ispTasks[section.isp_task_id].structured_data, null, 2)}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* User Prompt Section */}
             {section.user_prompt && (
               <div className="mb-4">
                 <p className="text-xs font-medium text-gray-600 mb-2">User Prompt:</p>
@@ -113,11 +370,68 @@ const NoteContentDisplay: React.FC<{ selectedNote: Note }> = ({ selectedNote }) 
               </div>
             )}
 
+            {/* Generated Content Section with Copy and Edit */}
             <div>
               <p className="text-xs font-medium text-gray-600 mb-2">Generated Content:</p>
-              <div className="text-sm text-gray-700 bg-white p-4 rounded border shadow-sm whitespace-pre-wrap leading-relaxed">
-                {section.generated_content || 'No content generated'}
-              </div>
+
+              {editingSections[section.id] ? (
+                // Editing Mode
+                <div className="space-y-3">
+                  <textarea
+                    value={editedContent[section.id] || section.generated_content}
+                    onChange={(e) => setEditedContent(prev => ({ ...prev, [section.id]: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 resize-none"
+                    rows={Math.max(3, (editedContent[section.id] || section.generated_content).split('\n').length)}
+                    placeholder="Edit your content..."
+                  />
+                  <div className="flex justify-end space-x-2">
+                    <button
+                      onClick={() => cancelEditing(section.id)}
+                      className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => saveEditing(section.id)}
+                      className="px-3 py-1 text-sm text-white bg-primary-600 hover:bg-primary-700 rounded"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                // Display Mode with Copy and Edit buttons
+                <div className="relative group bg-gray-50 rounded-md p-3 border border-gray-200">
+                  <div className="whitespace-pre-wrap text-gray-900 text-sm pr-20">
+                    {section.generated_content || 'No content generated'}
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="absolute top-3 right-3 flex space-x-1 opacity-0 group-hover:opacity-100 transition-all duration-200">
+                    <button
+                      onClick={() => handleCopyContent(section.generated_content || '', section.id)}
+                      className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-white hover:shadow-sm rounded z-10"
+                      title={copyFeedback[section.id] || "Copy content"}
+                    >
+                      <ClipboardDocumentIcon className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => startEditing(section.id, section.generated_content || '')}
+                      className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-white hover:shadow-sm rounded z-10"
+                      title="Edit content"
+                    >
+                      <PencilIcon className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  {/* Copy Feedback */}
+                  {copyFeedback[section.id] && (
+                    <div className="absolute top-3 right-3 px-2 py-1 bg-gray-800 text-white text-xs rounded shadow-lg z-20">
+                      {copyFeedback[section.id]}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -125,15 +439,130 @@ const NoteContentDisplay: React.FC<{ selectedNote: Note }> = ({ selectedNote }) 
     );
   }
 
-  // If content is object with sections property (legacy format)
-  if (selectedNote.content && typeof selectedNote.content === 'object' && selectedNote.content.sections) {
+  // PRIORITY 2: Handle legacy content more gracefully
+  console.log('🔍 Checking PRIORITY 2: legacy content', {
+    hasContent: !!selectedNote.content,
+    isObject: typeof selectedNote.content === 'object',
+    hasLegacySections: !!(selectedNote.content && typeof selectedNote.content === 'object' && selectedNote.content.sections),
+    noSectionsArray: !selectedNote.sections || selectedNote.sections.length === 0,
+    content: selectedNote.content
+  });
+
+  // Check if this is a legacy note with content object but no sections array
+  if (selectedNote.content &&
+      typeof selectedNote.content === 'object' &&
+      (!selectedNote.sections || selectedNote.sections.length === 0)) {
+
+    console.log('🔍 Handling legacy content format');
+
+    // Try to extract meaningful content from legacy format
+    const legacyContent = selectedNote.content;
+
+    // Check if there's actual content data in the legacy format
+    if (legacyContent.sections && typeof legacyContent.sections === 'number') {
+      // This is just a section count, not actual content
+      console.log('⚠️ Legacy format with section count only');
+      return (
+        <div className="space-y-4">
+          <div className="text-amber-700 bg-amber-50 p-3 rounded border border-amber-200">
+            <p className="font-medium">Legacy Note Format</p>
+            <p className="text-sm mt-1">
+              This note was created in an older format and indicates it had {legacyContent.sections} section{legacyContent.sections !== 1 ? 's' : ''},
+              but the actual content data is not available in the current format.
+            </p>
+          </div>
+          <div className="bg-blue-50 p-3 rounded border border-blue-200">
+            <p className="text-blue-800 text-sm">
+              <strong>Note:</strong> This appears to be a note that was created but may not have been fully saved or migrated.
+              The content may be available in the original note creation context.
+            </p>
+          </div>
+          <div className="bg-gray-50 p-3 rounded border border-gray-200">
+            <p className="text-gray-700 text-sm mb-2">
+              <strong>Troubleshooting:</strong> If this note should contain content, it may be stored in a legacy format that needs manual review.
+              Check the raw data below or contact support if you believe this note should have content.
+            </p>
+            <details className="text-xs">
+              <summary className="cursor-pointer text-gray-600 hover:text-gray-800">Show raw data</summary>
+              <pre className="mt-2 p-2 bg-white rounded border text-gray-700 overflow-x-auto">
+                {JSON.stringify(selectedNote.content, null, 2)}
+              </pre>
+            </details>
+          </div>
+        </div>
+      );
+    }
+
+    // Check if there are other content fields we can display
+    if (legacyContent.content || legacyContent.text || legacyContent.body) {
+      const displayContent = legacyContent.content || legacyContent.text || legacyContent.body;
+      console.log('📄 Found legacy content field to display');
+      return (
+        <div className="space-y-4">
+          <div className="text-blue-700 bg-blue-50 p-3 rounded border border-blue-200 flex items-center justify-between">
+            <div>
+              <p className="font-medium">Legacy Note Content</p>
+              <p className="text-sm mt-1">This note uses an older format but contains readable content.</p>
+            </div>
+            <button
+              onClick={handleMigrateLegacyNote}
+              disabled={migrating}
+              className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {migrating ? 'Migrating...' : 'Migrate Note'}
+            </button>
+          </div>
+          <div className="bg-white p-4 rounded border shadow-sm">
+            <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
+              {typeof displayContent === 'string' ? displayContent : JSON.stringify(displayContent, null, 2)}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // If we have other structured data, try to display it meaningfully
+    const contentKeys = Object.keys(legacyContent).filter(key => key !== 'sections');
+    if (contentKeys.length > 0) {
+      console.log('📊 Displaying structured legacy content');
+      return (
+        <div className="space-y-4">
+          <div className="text-blue-700 bg-blue-50 p-3 rounded border border-blue-200">
+            <p className="font-medium">Legacy Note Data</p>
+            <p className="text-sm mt-1">This note contains structured data from an older format.</p>
+          </div>
+          <div className="space-y-3">
+            {contentKeys.map(key => (
+              <div key={key} className="bg-white p-3 rounded border">
+                <div className="text-sm font-medium text-gray-600 mb-2 capitalize">
+                  {key.replace(/_/g, ' ')}:
+                </div>
+                <div className="text-gray-700">
+                  {typeof legacyContent[key] === 'string' ? (
+                    <div className="whitespace-pre-wrap">{legacyContent[key]}</div>
+                  ) : (
+                    <pre className="text-xs whitespace-pre-wrap overflow-x-auto">
+                      {JSON.stringify(legacyContent[key], null, 2)}
+                    </pre>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // Fallback for completely unrecognized legacy format
+    console.log('⚠️ Unrecognized legacy format - showing raw data');
     return (
       <div className="space-y-4">
         <div className="text-amber-700 bg-amber-50 p-3 rounded border border-amber-200">
-          <p className="font-medium">Legacy Note Format</p>
-          <p className="text-sm mt-1">This note contains {selectedNote.content.sections} sections but uses an older format.</p>
+          <p className="font-medium">Unrecognized Note Format</p>
+          <p className="text-sm mt-1">This note contains data in an unrecognized format.</p>
         </div>
         <div className="bg-white p-3 rounded border">
+          <div className="text-sm text-gray-600 mb-2">Raw data:</div>
           <pre className="text-gray-700 text-sm whitespace-pre-wrap overflow-x-auto">
             {JSON.stringify(selectedNote.content, null, 2)}
           </pre>
@@ -143,7 +572,9 @@ const NoteContentDisplay: React.FC<{ selectedNote: Note }> = ({ selectedNote }) 
   }
 
   // If content is a string
+  console.log('🔍 Checking string content condition');
   if (typeof selectedNote.content === 'string') {
+    console.log('📄 Displaying string content');
     return (
       <div className="bg-white p-4 rounded border shadow-sm">
         <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
@@ -154,7 +585,9 @@ const NoteContentDisplay: React.FC<{ selectedNote: Note }> = ({ selectedNote }) 
   }
 
   // If content exists but is some other format
+  console.log('🔍 Checking other content format condition');
   if (selectedNote.content) {
+    console.log('📊 Displaying raw content data');
     return (
       <div className="space-y-4">
         <div className="text-gray-700 bg-gray-100 p-3 rounded">
@@ -168,12 +601,18 @@ const NoteContentDisplay: React.FC<{ selectedNote: Note }> = ({ selectedNote }) 
   }
 
   // No content available
+  console.log('❓ No content available - displaying default message');
   return (
     <div className="text-center py-8 text-gray-500">
       <DocumentTextIcon className="mx-auto h-12 w-12 text-gray-300 mb-2" />
       <p>No content available for this note</p>
     </div>
   );
+};
+
+// Original component for backward compatibility
+const NoteContentDisplay: React.FC<{ selectedNote: Note }> = ({ selectedNote }) => {
+  return <EnhancedNoteContentDisplay selectedNote={selectedNote} />;
 };
 
 const NotesHistoryPage: React.FC = () => {
@@ -343,7 +782,10 @@ const NotesHistoryPage: React.FC = () => {
 
     try {
       setBulkLoading(true);
-      await notesAPI.bulkDeleteNotes(Array.from(selectedNotes));
+      const noteIdsArray = Array.from(selectedNotes);
+      console.log('Attempting to delete notes:', noteIdsArray);
+
+      await notesAPI.bulkDeleteNotes(noteIdsArray);
       toast.success(`Successfully deleted ${selectedNotes.size} notes`);
       setSelectedNotes(new Set());
       setBulkMode(false);
@@ -351,7 +793,21 @@ const NotesHistoryPage: React.FC = () => {
       loadUsageStats(); // Refresh stats after deletion
     } catch (error) {
       console.error('Error deleting notes:', error);
-      toast.error('Failed to delete selected notes');
+
+      // Provide specific error feedback
+      if (error instanceof Error) {
+        if (error.message.includes('validation') || error.message.includes('UUID')) {
+          toast.error('Invalid note selection. Please refresh the page and try again.');
+        } else if (error.message.includes('403') || error.message.includes('belong')) {
+          toast.error('You do not have permission to delete some of the selected notes.');
+        } else if (error.message.includes('Network')) {
+          toast.error('Network error. Please check your connection and try again.');
+        } else {
+          toast.error(`Failed to delete notes: ${error.message}`);
+        }
+      } else {
+        toast.error('Failed to delete selected notes');
+      }
     } finally {
       setBulkLoading(false);
     }
@@ -409,18 +865,43 @@ const NotesHistoryPage: React.FC = () => {
   };
 
   const getContentPreview = (content: any, sections?: any[]) => {
+    // Priority 1: Use sections array if available
     if (sections && sections.length > 0) {
       const firstSection = sections[0];
       const preview = firstSection.generated_content || firstSection.user_prompt;
       return preview.substring(0, 150) + (preview.length > 150 ? '...' : '');
     }
 
+    // Priority 2: Handle string content
     if (typeof content === 'string') {
       return content.substring(0, 150) + (content.length > 150 ? '...' : '');
     }
 
-    if (content?.sections) {
-      return `Note with ${content.sections} sections`;
+    // Priority 3: Handle legacy content object
+    if (content && typeof content === 'object') {
+      // Check for legacy content fields
+      if (content.content || content.text || content.body) {
+        const legacyText = content.content || content.text || content.body;
+        if (typeof legacyText === 'string') {
+          return legacyText.substring(0, 150) + (legacyText.length > 150 ? '...' : '');
+        }
+      }
+
+      // If it's just a section count
+      if (content.sections && typeof content.sections === 'number') {
+        return `Legacy note with ${content.sections} section${content.sections !== 1 ? 's' : ''} (content not migrated)`;
+      }
+
+      // Try to extract any meaningful text from object keys
+      const textKeys = ['description', 'summary', 'notes', 'details'];
+      for (const key of textKeys) {
+        if (content[key] && typeof content[key] === 'string') {
+          return content[key].substring(0, 150) + (content[key].length > 150 ? '...' : '');
+        }
+      }
+
+      // Fallback for other object content
+      return 'Legacy note format - click to view details';
     }
 
     return 'No preview available';

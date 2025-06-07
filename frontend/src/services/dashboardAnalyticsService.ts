@@ -32,7 +32,9 @@ export interface DashboardAnalytics {
 }
 
 class DashboardAnalyticsService {
-  private baseUrl = '/api/analytics';
+  private getApiUrl() {
+    return import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+  }
 
   async getDashboardAnalytics(period: string = 'month'): Promise<{
     success: boolean;
@@ -40,10 +42,16 @@ class DashboardAnalyticsService {
     error?: string;
   }> {
     try {
-      const response = await fetch(`${this.baseUrl}/dashboard?period=${period}`, {
+      // Get authentication token
+      const token = localStorage.getItem('auth_token');
+      console.log('Dashboard Analytics - Token:', token ? 'Present' : 'Missing');
+      console.log('Dashboard Analytics - API URL:', this.getApiUrl());
+
+      const response = await fetch(`${this.getApiUrl()}/analytics/dashboard?period=${period}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         credentials: 'include',
       });
@@ -67,10 +75,14 @@ class DashboardAnalyticsService {
     error?: string;
   }> {
     try {
-      const response = await fetch(`${this.baseUrl}/productivity?period=${period}`, {
+      // Get authentication token
+      const token = localStorage.getItem('auth_token');
+
+      const response = await fetch(`${this.getApiUrl()}/analytics/productivity?period=${period}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         credentials: 'include',
       });

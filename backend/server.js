@@ -57,7 +57,8 @@ const adminRoutes = require('./routes/admin');
 const app = express();
 const config = getConfig();
 
-// Initialize Supabase Admin Client
+// Initialize Supabase Admin Client with Service Key for backend operations
+// This bypasses RLS since we handle authorization in application logic
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL || 'https://ppavdpzulvosmmkzqtgy.supabase.co',
   process.env.SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBwYXZkcHp1bHZvc21ta3pxdGd5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0ODk5MjMyMywiZXhwIjoyMDY0NTY4MzIzfQ.yHF0fEOLMNsUTdsztGfvHGsonournMGiojrn0MhpHXA',
@@ -162,7 +163,7 @@ const authenticateUser = async (req, res, next) => {
     }
 
     // Get user from Supabase
-    const { data: users } = await supabaseAdmin.auth.admin.listUsers();
+    const { data: users } = await app.locals.supabase.auth.admin.listUsers();
     const user = users.users.find(u => u.id === tokenData.userId);
 
     if (!user) {
@@ -172,23 +173,100 @@ const authenticateUser = async (req, res, next) => {
       });
     }
 
-    // Get user profile (handle potential duplicates)
-    const { data: profiles, error: profileError } = await supabaseAdmin
-      .from('user_profiles')
-      .select('*')
-      .eq('user_id', user.id);
+    // Get user profile with enhanced error handling and retry logic
+    let profiles = null;
+    let profileError = null;
+    const maxRetries = 3;
+    const retryDelay = 200; // milliseconds
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        // Select only core columns to avoid issues with missing freemium columns
+        const result = await app.locals.supabase
+          .from('user_profiles')
+          .select(`
+            user_id,
+            first_name,
+            last_name,
+            tier,
+            credits,
+            has_completed_setup,
+            writing_style,
+            preferences,
+            created_at,
+            updated_at
+          `)
+          .eq('user_id', user.id);
+
+        profiles = result.data;
+        profileError = result.error;
+
+        if (!profileError) {
+          break; // Success, exit retry loop
+        }
+
+        // Log the specific error for debugging
+        console.error(`Profile fetch attempt ${attempt} failed for user ${user.id}:`, {
+          error: profileError,
+          code: profileError?.code,
+          message: profileError?.message,
+          details: profileError?.details
+        });
+
+        // Don't retry on certain permanent errors
+        if (profileError?.code === 'PGRST116' || // Not found
+            profileError?.code === '42P01' ||    // Table doesn't exist
+            profileError?.code === '42703') {    // Column doesn't exist
+          break;
+        }
+
+        // Wait before retrying (exponential backoff)
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, retryDelay * attempt));
+        }
+      } catch (networkError) {
+        console.error(`Network error on profile fetch attempt ${attempt}:`, networkError);
+        profileError = networkError;
+
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, retryDelay * attempt));
+        }
+      }
+    }
 
     if (profileError) {
+      console.error(`Failed to fetch user profile after ${maxRetries} attempts:`, {
+        userId: user.id,
+        userEmail: user.email,
+        error: profileError,
+        timestamp: new Date().toISOString()
+      });
+
+      // Provide more specific error messages based on error type
+      let errorMessage = 'Failed to fetch user profile';
+      if (profileError?.code === 'PGRST116') {
+        errorMessage = 'User profile not found in database';
+      } else if (profileError?.message?.includes('timeout')) {
+        errorMessage = 'Database timeout while fetching user profile';
+      } else if (profileError?.message?.includes('connection')) {
+        errorMessage = 'Database connection error while fetching user profile';
+      }
+
       return res.status(401).json({
         success: false,
-        error: 'Failed to fetch user profile'
+        error: errorMessage,
+        code: 'PROFILE_FETCH_ERROR',
+        retryable: !['PGRST116', '42P01', '42703'].includes(profileError?.code)
       });
     }
 
     if (!profiles || profiles.length === 0) {
+      console.warn(`No profile found for user ${user.id} (${user.email})`);
       return res.status(401).json({
         success: false,
-        error: 'User profile not found'
+        error: 'User profile not found',
+        code: 'PROFILE_NOT_FOUND',
+        retryable: false
       });
     }
 
@@ -201,23 +279,61 @@ const authenticateUser = async (req, res, next) => {
       console.warn(`Multiple profiles found for user ${user.id}, using most recent`);
     }
 
-    // Attach user info to request
+    // Attach user info to request (with graceful handling of missing freemium columns)
     req.user = {
       id: user.id,
       email: user.email,
       tier: profile.tier,
       credits: profile.credits,
+      // Gracefully handle missing freemium columns during migration period
+      freeGenerationsUsed: profile.free_generations_used !== undefined ? profile.free_generations_used : 0,
+      freeGenerationsResetDate: profile.free_generations_reset_date !== undefined ? profile.free_generations_reset_date : new Date().toISOString().split('T')[0],
       hasCompletedSetup: profile.has_completed_setup,
       writingStyle: profile.writing_style,
       preferences: profile.preferences
     };
 
+    // Note: Using global supabase admin client (service key) for all operations
+    // This ensures consistent behavior and bypasses RLS since we handle auth in application logic
+
     next();
   } catch (error) {
-    console.error('Authentication error:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Authentication service error' 
+    console.error('Authentication middleware error:', {
+      error: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString(),
+      userId: req.headers.authorization ? 'token_present' : 'no_token'
+    });
+
+    // Provide different error responses based on error type
+    if (error.message?.includes('Token expired')) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication token expired',
+        code: 'TOKEN_EXPIRED',
+        retryable: false
+      });
+    } else if (error.message?.includes('Invalid token')) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid authentication token',
+        code: 'INVALID_TOKEN',
+        retryable: false
+      });
+    } else if (error.message?.includes('User not found')) {
+      return res.status(401).json({
+        success: false,
+        error: 'User account not found',
+        code: 'USER_NOT_FOUND',
+        retryable: false
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: 'Authentication service error',
+      code: 'AUTH_SERVICE_ERROR',
+      retryable: true
     });
   }
 };
@@ -279,6 +395,7 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     version: '1.0.0',
     database: 'connected',
+    persistent_server: 'active', // Added to test file watching
     services: {
       supabase: 'connected',
       redis: process.env.REDIS_URL ? 'connected' : 'disabled',
@@ -349,15 +466,47 @@ try {
   process.exit(1);
 }
 
-// Graceful shutdown
+// Graceful shutdown handling
+const gracefulShutdown = (signal) => {
+  console.log(`${signal} received, shutting down gracefully...`);
 
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully');
   if (serverInstance) {
-    serverInstance.close(() => {
-      console.log('Process terminated');
+    serverInstance.close((err) => {
+      if (err) {
+        console.error('Error during server shutdown:', err);
+        process.exit(1);
+      }
+      console.log('✅ Server closed successfully');
+      process.exit(0);
     });
+
+    // Force shutdown after 10 seconds
+    setTimeout(() => {
+      console.error('❌ Forced shutdown after timeout');
+      process.exit(1);
+    }, 10000);
+  } else {
+    process.exit(0);
   }
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error);
+  gracefulShutdown('UNCAUGHT_EXCEPTION');
 });
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  gracefulShutdown('UNHANDLED_REJECTION');
+});
+
+// PM2 ready signal
+if (process.send) {
+  process.send('ready');
+}
 
 module.exports = app;

@@ -32,7 +32,6 @@ const createHeaders = (includeAuth = false, includeContentType = true): HeadersI
 const handleResponse = async (response: Response) => {
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ error: 'Network error' }));
-    const errorMessage = errorData.error || `HTTP ${response.status}: ${response.statusText}`;
 
     // Handle specific authentication errors
     if (response.status === 401) {
@@ -41,7 +40,55 @@ const handleResponse = async (response: Response) => {
       localStorage.removeItem('auth_user');
     }
 
-    throw new Error(errorMessage);
+    // Create detailed error message with enhanced error handling
+    let errorMessage = errorData.error || `HTTP ${response.status}: ${response.statusText}`;
+
+    // Handle specific error codes from the backend
+    if (errorData.code) {
+      switch (errorData.code) {
+        case 'PROFILE_FETCH_ERROR':
+          if (errorData.retryable) {
+            errorMessage = 'Unable to load your profile. Please try refreshing the page.';
+          } else {
+            errorMessage = 'Your profile data is corrupted. Please contact support.';
+          }
+          break;
+        case 'PROFILE_NOT_FOUND':
+          errorMessage = 'Your profile was not found. Please try logging out and back in.';
+          break;
+        case 'TOKEN_EXPIRED':
+          errorMessage = 'Your session has expired. Please log in again.';
+          break;
+        case 'INVALID_TOKEN':
+          errorMessage = 'Your session is invalid. Please log in again.';
+          break;
+        case 'USER_NOT_FOUND':
+          errorMessage = 'Your account was not found. Please contact support.';
+          break;
+        case 'AUTH_SERVICE_ERROR':
+          errorMessage = 'Authentication service is temporarily unavailable. Please try again.';
+          break;
+        default:
+          // Keep the original error message for unknown codes
+          break;
+      }
+    }
+
+    // Add validation details if available
+    if (errorData.details && Array.isArray(errorData.details)) {
+      const validationErrors = errorData.details.map((detail: any) => detail.msg).join(', ');
+      errorMessage += ` - ${validationErrors}`;
+    } else if (errorData.details && typeof errorData.details === 'string') {
+      errorMessage += ` - ${errorData.details}`;
+    }
+
+    // Create enhanced error object with additional metadata
+    const enhancedError = new Error(errorMessage);
+    (enhancedError as any).code = errorData.code;
+    (enhancedError as any).retryable = errorData.retryable;
+    (enhancedError as any).status = response.status;
+
+    throw enhancedError;
   }
 
   return response.json();
@@ -416,8 +463,27 @@ export const aiAPI = {
       detailLevel?: string;
       toneLevel?: number;
     }>;
+    saveNote?: boolean;
   }) => {
     const response = await fetch(`${API_BASE_URL}/ai/generate`, {
+      method: 'POST',
+      headers: createHeaders(true),
+      body: JSON.stringify(requestData),
+    });
+    return handleResponse(response);
+  },
+
+  saveNote: async (requestData: {
+    title: string;
+    sections: Array<{
+      isp_task_id?: string | null;
+      user_prompt: string;
+      generated_content: string;
+      tokens_used?: number;
+      is_edited?: boolean;
+    }>;
+  }) => {
+    const response = await fetch(`${API_BASE_URL}/ai/save-note`, {
       method: 'POST',
       headers: createHeaders(true),
       body: JSON.stringify(requestData),
