@@ -10,9 +10,7 @@ import {
   ClockIcon,
   DocumentTextIcon,
   FunnelIcon,
-  ArrowsUpDownIcon,
   CheckIcon,
-  XMarkIcon,
   ArrowDownTrayIcon,
   Squares2X2Icon,
   ListBulletIcon
@@ -302,10 +300,10 @@ const NotesHistoryPage: React.FC = () => {
     loadNotes();
   };
 
-  const handleFilterChange = () => {
-    setCurrentPage(1);
-    loadNotes();
-  };
+  // const handleFilterChange = () => {
+  //   setCurrentPage(1);
+  //   loadNotes();
+  // };
 
   const clearFilters = () => {
     setSearchTerm('');

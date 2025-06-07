@@ -191,7 +191,7 @@ export const initializeDatabase = async (): Promise<{ success: boolean; error?: 
     });
 
     if (response.ok) {
-      const result = await response.json();
+      await response.json(); // Response received but not used
       return { success: true };
     } else {
       const errorData = await response.json().catch(() => ({}));

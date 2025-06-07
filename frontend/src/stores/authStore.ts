@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { User as SupabaseUser } from '@supabase/supabase-js';
+// import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 
@@ -83,19 +83,20 @@ const parsePreferences = (preferences?: string | UserPreferences | null): UserPr
 };
 
 // Helper function to convert Supabase user + profile to our User interface
-const createUserFromProfile = (supabaseUser: SupabaseUser, profile: UserProfile): User => ({
-  id: supabaseUser.id,
-  email: supabaseUser.email!,
-  firstName: profile.first_name || undefined,
-  lastName: profile.last_name || undefined,
-  tier: profile.tier,
-  credits: profile.credits,
-  hasCompletedSetup: profile.has_completed_setup,
-  writingStyle: profile.writing_style || undefined,
-  preferences: parsePreferences(profile.preferences),
-  createdAt: profile.created_at,
-  updatedAt: profile.updated_at,
-});
+// Utility function for creating User from profile (currently unused but kept for future use)
+// const createUserFromProfile = (supabaseUser: SupabaseUser, profile: UserProfile): User => ({
+//   id: supabaseUser.id,
+//   email: supabaseUser.email!,
+//   firstName: profile.first_name || undefined,
+//   lastName: profile.last_name || undefined,
+//   tier: profile.tier,
+//   credits: profile.credits,
+//   hasCompletedSetup: profile.has_completed_setup,
+//   writingStyle: profile.writing_style || undefined,
+//   preferences: parsePreferences(profile.preferences),
+//   createdAt: profile.created_at,
+//   updatedAt: profile.updated_at,
+// });
 
 export const useAuthStore = create<AuthState>()(
   persist(

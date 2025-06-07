@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { ExclamationTriangleIcon, CogIcon } from '@heroicons/react/24/outline';
 import { useAuthStore } from '../stores/authStore';
 import { noteService } from '../services/noteService';
-import EditableNoteSection from '../components/EditableNoteSection';
 import EnhancedNoteSection from '../components/EnhancedNoteSection';
 import type { ISPTask, GenerateNoteRequest } from '../services/noteService';
 import toast from 'react-hot-toast';
@@ -19,6 +18,9 @@ interface SectionData {
   isEdited?: boolean;
   generationTime?: number;
   tokensUsed?: number;
+  // Add settings for Generate Notes alignment
+  detailLevel?: string;
+  toneLevel?: number;
 }
 
 const NoteGenerationPage: React.FC = () => {
@@ -28,7 +30,7 @@ const NoteGenerationPage: React.FC = () => {
   const [sections, setSections] = useState<SectionData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedNoteId, setGeneratedNoteId] = useState<string | null>(null);
+  const [, setGeneratedNoteId] = useState<string | null>(null);
 
   // Load user's ISP tasks on component mount
   useEffect(() => {
@@ -86,9 +88,15 @@ const NoteGenerationPage: React.FC = () => {
     setSections(prev => prev.filter((_, i) => i !== index));
   };
 
-  const updateSectionContent = (index: number, content: string, isEdited: boolean) => {
+  // const updateSectionContent = (index: number, content: string, isEdited: boolean) => {
+  //   setSections(prev => prev.map((section, i) =>
+  //     i === index ? { ...section, generated: content, isEdited } : section
+  //   ));
+  // };
+
+  const updateSectionSettings = (index: number, settings: { detailLevel: string; toneLevel: number }) => {
     setSections(prev => prev.map((section, i) =>
-      i === index ? { ...section, generated: content, isEdited } : section
+      i === index ? { ...section, detailLevel: settings.detailLevel, toneLevel: settings.toneLevel } : section
     ));
   };
 
@@ -117,7 +125,10 @@ const NoteGenerationPage: React.FC = () => {
         sections: validSections.map(section => ({
           taskId: section.taskId,
           prompt: section.prompt.trim(),
-          type: section.type
+          type: section.type,
+          // Include section-specific settings for identical functionality to Preview Enhanced
+          detailLevel: section.detailLevel || 'brief',
+          toneLevel: section.toneLevel || 50
         }))
       };
 
@@ -165,11 +176,11 @@ const NoteGenerationPage: React.FC = () => {
     }
   };
 
-  const getTaskName = (taskId?: string) => {
-    if (!taskId) return null;
-    const task = ispTasks.find(t => t?.id === taskId);
-    return task?.description || 'Unknown Task';
-  };
+  // const getTaskName = (taskId?: string) => {
+  //   if (!taskId) return null;
+  //   const task = ispTasks.find(t => t?.id === taskId);
+  //   return task?.description || 'Unknown Task';
+  // };
 
   const getTaskDescription = (taskId: string): string | undefined => {
     const task = ispTasks.find(t => t.id === taskId);
@@ -265,20 +276,10 @@ const NoteGenerationPage: React.FC = () => {
                   taskDescription={section.taskId ? getTaskDescription(section.taskId) : undefined}
                   onPromptChange={(prompt) => updateSectionPrompt(index, prompt)}
                   onRemove={section.type !== 'task' ? () => removeSection(index) : undefined}
+                  onSettingsChange={(settings) => updateSectionSettings(index, settings)}
                 />
 
-                {/* Generated Content with Analytics (shown after generation) */}
-                {section.generated && section.sectionId && (
-                  <div className="mt-4">
-                    <EditableNoteSection
-                      content={section.generated}
-                      isEdited={section.isEdited || false}
-                      onContentChange={(newContent, isEdited) => {
-                        updateSectionContent(index, newContent, isEdited);
-                      }}
-                    />
-                  </div>
-                )}
+
               </div>
             ))}
           </div>

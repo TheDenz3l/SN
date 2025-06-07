@@ -21,8 +21,7 @@ interface UsePreferencesStateReturn {
  */
 export const usePreferencesState = ({
   savedToneLevel,
-  savedDetailLevel,
-  isSaving
+  savedDetailLevel
 }: UsePreferencesStateProps): UsePreferencesStateReturn => {
   const [defaultToneLevel, setDefaultToneLevel] = useState(savedToneLevel);
   const [defaultDetailLevel, setDefaultDetailLevel] = useState(savedDetailLevel);

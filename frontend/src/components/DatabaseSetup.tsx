@@ -7,8 +7,7 @@ import React, { useState, useEffect } from 'react';
 import {
   CheckCircleIcon,
   ExclamationTriangleIcon,
-  ArrowPathIcon,
-  InformationCircleIcon
+  ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import { checkDatabaseStatus, createUserProfile, initializeDatabase, type DatabaseStatus } from '../services/setupService';
 import toast from 'react-hot-toast';

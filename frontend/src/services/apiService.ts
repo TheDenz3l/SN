@@ -413,6 +413,8 @@ export const aiAPI = {
       taskId?: string;
       prompt: string;
       type: 'task' | 'comment' | 'general';
+      detailLevel?: string;
+      toneLevel?: number;
     }>;
   }) => {
     const response = await fetch(`${API_BASE_URL}/ai/generate`, {

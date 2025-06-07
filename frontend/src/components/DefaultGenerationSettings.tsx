@@ -2,26 +2,7 @@ import React, { useState, useEffect, useRef, memo, useCallback } from 'react';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { userAPI } from '../services/apiService';
-
-interface User {
-  id: string;
-  email: string;
-  firstName?: string;
-  lastName?: string;
-  tier: string;
-  credits: number;
-  hasCompletedSetup: boolean;
-  writingStyle?: string;
-  preferences?: {
-    defaultToneLevel?: number;
-    defaultDetailLevel?: 'brief' | 'moderate' | 'detailed' | 'comprehensive';
-    emailNotifications?: boolean;
-    weeklyReports?: boolean;
-    useTimePatterns?: boolean;
-  };
-  createdAt?: string;
-  updatedAt?: string;
-}
+import type { User } from '../stores/authStore';
 
 interface DefaultGenerationSettingsProps {
   user: User | null;
@@ -223,12 +204,15 @@ const DefaultGenerationSettings: React.FC<DefaultGenerationSettingsProps> = memo
     setUseTimePatterns(lastSavedValues.current.useTimePatterns);
   }, []);
   
-  // Get tone description
+  // Get tone description with smooth transitions
   const getToneDescription = (level: number): string => {
-    if (level < 25) return "Personal writing style with natural expressions";
-    if (level < 50) return "Balanced tone with some personal touch";
-    if (level < 75) return "Professional with clinical standards";
-    return "Formal clinical documentation style";
+    if (level <= 10) return "Maximum authenticity - pure personal style";
+    if (level <= 25) return "High authenticity with natural expressions";
+    if (level <= 40) return "Authentic style with professional touch";
+    if (level <= 60) return "Balanced blend of personal and professional";
+    if (level <= 75) return "Professional focus with authentic elements";
+    if (level <= 90) return "High professional standards with subtle personal touch";
+    return "Maximum professional clinical documentation";
   };
   
   // Detail level options
@@ -363,7 +347,7 @@ const DefaultGenerationSettings: React.FC<DefaultGenerationSettingsProps> = memo
       </div>
       
       {/* Custom CSS for slider */}
-      <style jsx>{`
+      <style>{`
         .slider::-webkit-slider-thumb {
           appearance: none;
           height: 20px;

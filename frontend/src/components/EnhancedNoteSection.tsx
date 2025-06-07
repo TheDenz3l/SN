@@ -10,9 +10,9 @@ import {
   AdjustmentsHorizontalIcon,
   ChartBarIcon,
   ClockIcon,
-  CurrencyDollarIcon,
   ChevronDownIcon,
-  ChevronUpIcon
+  ChevronUpIcon,
+  ClipboardDocumentIcon
 } from '@heroicons/react/24/outline';
 import { aiAPI } from '../services/apiService';
 import { useAuthStore } from '../stores/authStore';
@@ -34,6 +34,8 @@ interface EnhancedNoteSectionProps {
   onPromptChange: (prompt: string) => void;
   onRemove?: () => void;
   className?: string;
+  // New prop for exposing current settings to parent
+  onSettingsChange?: (settings: { detailLevel: string; toneLevel: number }) => void;
 }
 
 interface PreviewData {
@@ -59,12 +61,12 @@ const DETAIL_LEVELS = [
 ] as const;
 
 const EnhancedNoteSection: React.FC<EnhancedNoteSectionProps> = ({
-  index,
   section,
   taskDescription,
   onPromptChange,
   onRemove,
-  className = ''
+  className = '',
+  onSettingsChange
 }) => {
   const { user } = useAuthStore();
   const [showPreview, setShowPreview] = useState(false);
@@ -75,6 +77,7 @@ const EnhancedNoteSection: React.FC<EnhancedNoteSectionProps> = ({
   const [showSettings, setShowSettings] = useState(false);
   const [isTitleExpanded, setIsTitleExpanded] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
 
   // Initialize with user's default preferences
   useEffect(() => {
@@ -88,6 +91,24 @@ const EnhancedNoteSection: React.FC<EnhancedNoteSectionProps> = ({
       setIsInitialized(true);
     }
   }, [user?.preferences]);
+
+  // Notify parent when settings change (after initialization)
+  useEffect(() => {
+    if (isInitialized && onSettingsChange) {
+      onSettingsChange({ detailLevel, toneLevel });
+    }
+  }, [detailLevel, toneLevel, isInitialized, onSettingsChange]);
+
+  const handleCopyContent = async (content: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopyFeedback('Copied!');
+      setTimeout(() => setCopyFeedback(null), 2000);
+    } catch (err) {
+      setCopyFeedback('Failed to copy');
+      setTimeout(() => setCopyFeedback(null), 2000);
+    }
+  };
 
   const generatePreview = async () => {
     if (!section.prompt.trim()) {
@@ -112,11 +133,7 @@ const EnhancedNoteSection: React.FC<EnhancedNoteSectionProps> = ({
         // Handle specific error cases
         if (result.error && result.error.includes('complete your setup')) {
           toast.error('Please complete your setup first to use preview functionality', {
-            duration: 5000,
-            action: {
-              label: 'Go to Setup',
-              onClick: () => window.location.href = '/setup'
-            }
+            duration: 5000
           });
         } else {
           toast.error(result.error || 'Failed to generate preview');
@@ -128,11 +145,7 @@ const EnhancedNoteSection: React.FC<EnhancedNoteSectionProps> = ({
       // Check if it's a setup-related error
       if (error instanceof Error && error.message.includes('setup')) {
         toast.error('Please complete your setup first to use preview functionality', {
-          duration: 5000,
-          action: {
-            label: 'Go to Setup',
-            onClick: () => window.location.href = '/setup'
-          }
+          duration: 5000
         });
       } else {
         toast.error('Failed to generate preview');
@@ -165,7 +178,7 @@ const EnhancedNoteSection: React.FC<EnhancedNoteSectionProps> = ({
       // Fix common ISP patterns
       .replace(/(\d)\.\s*([A-Z])/g, '$1. $2')
       // Ensure proper capitalization after periods
-      .replace(/\.\s*([a-z])/g, (match, letter) => `. ${letter.toUpperCase()}`)
+      .replace(/\.\s*([a-z])/g, (_, letter) => `. ${letter.toUpperCase()}`)
       // Clean up "Describe:" patterns
       .replace(/Describe:\s*/g, 'Describe: ')
       // Fix treatment/response patterns
@@ -216,7 +229,7 @@ const EnhancedNoteSection: React.FC<EnhancedNoteSectionProps> = ({
 
   return (
     <div className={`border border-gray-200 rounded-lg p-4 ${className}`}>
-      <style jsx>{`
+      <style>{`
         .slider::-webkit-slider-thumb {
           appearance: none;
           height: 20px;
@@ -344,10 +357,15 @@ const EnhancedNoteSection: React.FC<EnhancedNoteSectionProps> = ({
                 </div>
               </div>
               <div className="text-xs text-gray-600 text-center">
-                {toneLevel < 25 && "Personal writing style with natural expressions"}
-                {toneLevel >= 25 && toneLevel < 50 && "Balanced tone with some personal touch"}
-                {toneLevel >= 50 && toneLevel < 75 && "Professional with clinical standards"}
-                {toneLevel >= 75 && "Formal clinical documentation style"}
+                {(() => {
+                  if (toneLevel <= 10) return "Maximum authenticity - pure personal style";
+                  if (toneLevel <= 25) return "High authenticity with natural expressions";
+                  if (toneLevel <= 40) return "Authentic style with professional touch";
+                  if (toneLevel <= 60) return "Balanced blend of personal and professional";
+                  if (toneLevel <= 75) return "Professional focus with authentic elements";
+                  if (toneLevel <= 90) return "High professional standards with subtle personal touch";
+                  return "Maximum professional clinical documentation";
+                })()}
               </div>
             </div>
           </div>
@@ -463,10 +481,22 @@ const EnhancedNoteSection: React.FC<EnhancedNoteSectionProps> = ({
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Generated Content
             </label>
-            <div className="bg-gray-50 rounded-md p-3 border border-gray-200">
-              <div className="whitespace-pre-wrap text-gray-900 text-sm">
+            <div className="relative group bg-gray-50 rounded-md p-3 border border-gray-200">
+              <div className="whitespace-pre-wrap text-gray-900 text-sm pr-12">
                 {section.generated}
               </div>
+              <button
+                onClick={() => handleCopyContent(section.generated || '')}
+                className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-200 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-white hover:shadow-sm rounded z-10"
+                title={copyFeedback || "Copy content"}
+              >
+                <ClipboardDocumentIcon className="h-4 w-4" />
+              </button>
+              {copyFeedback && (
+                <div className="absolute top-3 right-14 bg-gray-800 text-white text-xs px-2 py-1 rounded shadow-lg z-20 transition-all duration-200">
+                  {copyFeedback}
+                </div>
+              )}
             </div>
           </div>
         )}

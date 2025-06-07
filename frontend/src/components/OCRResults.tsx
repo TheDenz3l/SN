@@ -53,9 +53,7 @@ const OCRResults: React.FC<OCRResultsProps> = ({
   warnings,
   onTasksChange,
   onAddTask,
-  className = '',
-  formSections = [],
-  showStructuredView = false
+  className = ''
 }) => {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [showExtractedText, setShowExtractedText] = useState(false);
@@ -79,19 +77,24 @@ const OCRResults: React.FC<OCRResultsProps> = ({
     onTasksChange(updatedTasks);
   };
 
-  // Handle structured data change
-  const handleStructuredDataChange = (index: number, field: string, value: string) => {
-    const updatedTasks = [...editedTasks];
-    updatedTasks[index] = {
-      ...updatedTasks[index],
-      structuredData: {
-        ...updatedTasks[index].structuredData,
-        [field]: value
-      }
-    };
-    setEditedTasks(updatedTasks);
-    onTasksChange(updatedTasks);
-  };
+  // Handle structured data change (currently unused but kept for future functionality)
+  // const handleStructuredDataChange = (index: number, field: string, value: string) => {
+  //   const updatedTasks = [...editedTasks];
+  //   updatedTasks[index] = {
+  //     ...updatedTasks[index],
+  //     structuredData: {
+  //       goal: '',
+  //       activeTreatment: '',
+  //       individualResponse: '',
+  //       scoresComments: '',
+  //       type: '',
+  //       ...updatedTasks[index].structuredData,
+  //       [field]: value
+  //     }
+  //   };
+  //   setEditedTasks(updatedTasks);
+  //   onTasksChange(updatedTasks);
+  // };
 
   // Toggle task expansion
   const toggleTaskExpansion = (index: number) => {
@@ -258,7 +261,7 @@ const OCRResults: React.FC<OCRResultsProps> = ({
                       <div className="space-y-3">
                         <AutoResizeTextarea
                           value={task.description}
-                          onChange={(value) => handleTaskChange(index, value)}
+                          onChange={(e) => handleTaskChange(index, e.target.value)}
                           placeholder="Enter task description..."
                           className="w-full"
                           minRows={2}

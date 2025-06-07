@@ -8,7 +8,6 @@ import {
   CloudArrowUpIcon,
   PhotoIcon,
   XMarkIcon,
-  ExclamationTriangleIcon,
   CheckCircleIcon,
   ArrowPathIcon
 } from '@heroicons/react/24/outline';

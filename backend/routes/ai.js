@@ -601,117 +601,78 @@ DETAIL LEVEL: COMPREHENSIVE (Maximum Detail)
   }
 };
 
-// Generate tone adjustment instructions based on slider value (0-100)
+// Generate tone adjustment instructions based on slider value (0-100) with SMOOTH TRANSITIONS
 const generateToneInstructions = (toneLevel, styleAnalysis) => {
   const vocab = styleAnalysis.vocabularyProfile;
   const mappings = vocab?.vocabularyMappings || {};
 
-  if (toneLevel < 25) {
-    // More Authentic (0-24) - ENHANCED with specific vocabulary substitutions
-    let instructions = `
-TONE SETTING: MAXIMUM AUTHENTICITY (${toneLevel}/100)
-- CRITICAL: Sound EXACTLY like the user wrote it themselves - this is the highest priority
-- Copy the user's specific word choices, phrases, and expressions from the writing sample
-- Mimic their exact sentence flow and rhythm patterns
-- Use their preferred terminology and avoid words they don't typically use
-- Replicate their punctuation habits and sentence structure preferences
-- Include their personality quirks, casual expressions, and unique communication style
-- Maintain their natural conversational tone even in professional contexts
-- Preserve any informal language patterns or colloquialisms they use
-- Focus on authenticity over formal clinical standards
-- The result should be indistinguishable from the user's own writing`;
+  // Calculate continuous interpolation factors for smooth transitions
+  const authenticityWeight = Math.max(0, (100 - toneLevel) / 100); // 1.0 at 0, 0.0 at 100
+  const professionalWeight = Math.max(0, toneLevel / 100); // 0.0 at 0, 1.0 at 100
 
-    // Add comprehensive vocabulary substitution instructions
-    if (Object.keys(mappings).length > 0) {
-      instructions += `
+  // Create smooth blended instructions instead of discrete ranges
+  let instructions = `
+TONE SETTING: CONTINUOUS BLEND (${toneLevel}/100)
+Authenticity Weight: ${(authenticityWeight * 100).toFixed(1)}% | Professional Weight: ${(professionalWeight * 100).toFixed(1)}%
 
-CRITICAL VOCABULARY SUBSTITUTIONS FOR AUTHENTICITY:
-ALWAYS replace clinical/formal terms with user's natural language:`;
+AUTHENTICITY INSTRUCTIONS (Weight: ${(authenticityWeight * 100).toFixed(1)}%):
+${authenticityWeight > 0.7 ? '- CRITICAL: Sound EXACTLY like the user wrote it themselves' : ''}
+${authenticityWeight > 0.5 ? '- Copy the user\'s specific word choices, phrases, and expressions' : ''}
+${authenticityWeight > 0.3 ? '- Mimic their sentence flow and rhythm patterns' : ''}
+${authenticityWeight > 0.1 ? '- Use their preferred terminology when appropriate' : ''}
+${authenticityWeight > 0.0 ? '- Preserve some personal expressions and natural language' : ''}
 
-      Object.entries(mappings).slice(0, 15).forEach(([clinical, natural]) => {
-        if (clinical !== natural && natural.length > 0) {
-          instructions += `
-- "${clinical}" → "${natural}"`;
-        }
-      });
+PROFESSIONAL INSTRUCTIONS (Weight: ${(professionalWeight * 100).toFixed(1)}%):
+${professionalWeight > 0.7 ? '- Prioritize formal clinical documentation standards' : ''}
+${professionalWeight > 0.5 ? '- Use professional healthcare terminology' : ''}
+${professionalWeight > 0.3 ? '- Maintain clinical objectivity and formal structure' : ''}
+${professionalWeight > 0.1 ? '- Include some professional healthcare language' : ''}
+${professionalWeight > 0.0 ? '- Add subtle professional elements' : ''}
 
-      instructions += `
+BLENDING STRATEGY:
+- Apply ${(authenticityWeight * 100).toFixed(0)}% user's natural style + ${(professionalWeight * 100).toFixed(0)}% professional standards
+- Smooth transition between authentic and professional elements
+- No abrupt changes in tone or vocabulary`;
 
-FORBIDDEN CLINICAL VOCABULARY:
-Never use these formal terms: "efficiently", "carefully", "thoroughly", "subsequently",
-"designated", "comprehensive", "facilitate", "utilize", "commence", "optimal", "appropriate"`;
-    }
+  // Add vocabulary substitutions based on authenticity weight
+  if (Object.keys(mappings).length > 0 && authenticityWeight > 0.3) {
+    const substitutionCount = Math.ceil(authenticityWeight * 10); // More substitutions for higher authenticity
+    instructions += `
 
-    // Add user's preferred expressions
-    if (vocab?.naturalExpressions?.length > 0) {
-      instructions += `
+VOCABULARY SUBSTITUTIONS (${substitutionCount} priority terms):
+Apply user's natural language with ${(authenticityWeight * 100).toFixed(0)}% priority:`;
 
-USE THESE AUTHENTIC EXPRESSIONS:
-${vocab.naturalExpressions.slice(0, 5).map(expr => `- "${expr}"`).join('\n')}`;
-    }
+    Object.entries(mappings).slice(0, substitutionCount).forEach(([clinical, natural]) => {
+      if (clinical !== natural && natural.length > 0) {
+        const priority = authenticityWeight > 0.7 ? 'ALWAYS' : authenticityWeight > 0.4 ? 'PREFER' : 'CONSIDER';
+        instructions += `
+- ${priority}: "${clinical}" → "${natural}"`;
+      }
+    });
+  }
 
-    // Add time pattern instructions if detected and user preference enabled
-    if (vocab?.timePatterns?.timeBasedNarrative && styleAnalysis.userPreferences?.useTimePatterns !== false) {
-      instructions += `
+  // Add user's preferred expressions based on authenticity weight
+  if (vocab?.naturalExpressions?.length > 0 && authenticityWeight > 0.2) {
+    const expressionCount = Math.ceil(authenticityWeight * 5);
+    instructions += `
 
-TIME-BASED NARRATIVE PATTERN:
+AUTHENTIC EXPRESSIONS (Use ${expressionCount} when appropriate):
+${vocab.naturalExpressions.slice(0, expressionCount).map(expr => `- "${expr}"`).join('\n')}`;
+  }
+
+  // Add time pattern instructions if detected and authenticity weight is sufficient
+  if (vocab?.timePatterns?.timeBasedNarrative && authenticityWeight > 0.3 && styleAnalysis.userPreferences?.useTimePatterns !== false) {
+    instructions += `
+
+TIME-BASED NARRATIVE PATTERN (Apply with ${(authenticityWeight * 100).toFixed(0)}% authenticity):
 - User writes with time markers: ${vocab.timePatterns.timeMarkers.slice(0, 3).join(', ')}
 - Use sequential time-based structure like the user's style
 - Format: "${vocab.timePatterns.timeFormat}" time format
-- Follow user's pattern: time + "Chad would" + action
-- Structure content chronologically with specific times when appropriate`;
-    }
-
-    return instructions;
-  } else if (toneLevel < 50) {
-    // Balanced Authentic (25-49) - Enhanced with selective vocabulary substitutions
-    let instructions = `
-TONE SETTING: AUTHENTIC WITH PROFESSIONAL TOUCH (${toneLevel}/100)
-- Balance personal writing style with professional healthcare standards
-- Maintain the user's natural voice while ensuring clinical appropriateness
-- Use the user's preferred terminology but ensure professional clarity
-- Keep personal expressions while meeting documentation requirements
-- Blend authentic style with necessary professional elements`;
-
-    // Add selective vocabulary substitutions for balance
-    if (Object.keys(mappings).length > 0) {
-      instructions += `
-
-SELECTIVE VOCABULARY PREFERENCES:
-Prefer user's natural language when appropriate:`;
-
-      // Use only the most natural substitutions for balanced mode
-      const naturalMappings = Object.entries(mappings).filter(([clinical, natural]) =>
-        natural.length < clinical.length && clinical !== natural
-      ).slice(0, 4);
-
-      naturalMappings.forEach(([clinical, natural]) => {
-        instructions += `
-- Prefer "${natural}" over "${clinical}" when context allows`;
-      });
-    }
-
-    return instructions;
-  } else if (toneLevel < 75) {
-    // Balanced Professional (50-74)
-    return `
-TONE SETTING: PROFESSIONAL WITH AUTHENTIC ELEMENTS (${toneLevel}/100)
-- Emphasize professional healthcare documentation standards
-- Maintain user's writing style but elevate to clinical professional level
-- Use formal medical terminology while preserving user's sentence patterns
-- Ensure clinical objectivity while keeping recognizable writing characteristics
-- Professional tone with subtle personal style elements`;
-  } else {
-    // Maximum Professional (75-100)
-    return `
-TONE SETTING: MAXIMUM PROFESSIONAL CLINICAL STANDARD (${toneLevel}/100)
-- Prioritize formal clinical documentation standards and medical terminology
-- Use objective, professional healthcare language throughout
-- Maintain clinical objectivity and formal documentation style
-- Follow strict professional healthcare documentation guidelines
-- Minimize personal expressions in favor of clinical precision
-- Ensure content meets highest professional healthcare documentation standards`;
+- Follow user's pattern: time + action structure
+- Structure content chronologically when appropriate`;
   }
+
+  return instructions;
 };
 
 // Legacy function for backward compatibility - now uses enhanced prompting by default
@@ -800,18 +761,21 @@ router.post('/generate', validateGenerateNote, handleValidationErrors, async (re
           taskDescription = task?.description;
         }
 
-        // Get user preferences for detail level and tone level
+        // Get user preferences for defaults
         const userPreferences = req.user?.preferences ? JSON.parse(req.user.preferences) : {};
-        const userDetailLevel = userPreferences.defaultDetailLevel || 'brief';
-        const userToneLevel = userPreferences.defaultToneLevel || 50;
 
-        // Create the enhanced prompt with user preferences
+        // Use section-specific settings if provided, otherwise fall back to user defaults
+        // This ensures Generate Notes has identical functionality to Preview Enhanced
+        const sectionDetailLevel = sectionRequest.detailLevel || userPreferences.defaultDetailLevel || 'brief';
+        const sectionToneLevel = sectionRequest.toneLevel !== undefined ? sectionRequest.toneLevel : (userPreferences.defaultToneLevel || 50);
+
+        // Create the enhanced prompt with section-specific settings
         const prompt = createEnhancedPrompt(
           sectionRequest,
           req.user.writingStyle,
           taskDescription,
-          userDetailLevel,
-          userToneLevel,
+          sectionDetailLevel,
+          sectionToneLevel,
           userPreferences
         );
 

@@ -26,7 +26,7 @@ export const useUIStateManager = (
   
   const [isInitialized, setIsInitialized] = useState(false);
   const [hasStaleData, setHasStaleData] = useState(false);
-  const [refreshCounter, setRefreshCounter] = useState(0);
+  const [, setRefreshCounter] = useState(0);
   
   const { user, isAuthenticated, isLoading } = useAuthStore();
   const lastUserRef = useRef(user);
@@ -141,8 +141,9 @@ export const usePageRefreshDetection = () => {
   
   useEffect(() => {
     // Check if this is a page refresh by looking at navigation type
-    const isRefresh = performance.navigation?.type === 1 || 
-                     performance.getEntriesByType('navigation')[0]?.type === 'reload';
+    const navigationEntry = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
+    const isRefresh = performance.navigation?.type === 1 ||
+                     navigationEntry?.type === 'reload';
     
     if (isRefresh) {
       console.log('🔄 Page refresh detected');

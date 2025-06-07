@@ -6,8 +6,6 @@ import toast from 'react-hot-toast';
 import {
   UserIcon,
   PencilIcon,
-  CogIcon,
-  BellIcon,
   ShieldCheckIcon,
   CreditCardIcon,
   DocumentTextIcon,
@@ -16,13 +14,7 @@ import {
   ChevronRightIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
-  XMarkIcon,
-  EyeIcon,
-  EyeSlashIcon,
-  ArrowPathIcon,
   CloudArrowDownIcon,
-  KeyIcon,
-  AdjustmentsHorizontalIcon,
   ChartBarIcon,
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '../stores/authStore';
@@ -463,7 +455,7 @@ const SettingsPage: React.FC = () => {
       try {
         let result;
         if (editingTask) {
-          result = await ispTasksAPI.updateTask(editingTask.id, data.description);
+          result = await ispTasksAPI.updateTask(editingTask.id, { description: data.description });
         } else {
           result = await ispTasksAPI.addTask(data.description);
         }
@@ -585,7 +577,7 @@ const SettingsPage: React.FC = () => {
                 <p className="text-sm">Add your first task to get started</p>
               </div>
             ) : (
-              ispTasks.map((task, index) => (
+              ispTasks.map((task) => (
                 <div
                   key={task.id}
                   className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"

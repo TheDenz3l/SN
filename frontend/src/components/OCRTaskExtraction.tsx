@@ -8,7 +8,6 @@ import {
   PhotoIcon,
   DocumentTextIcon,
   CheckCircleIcon,
-  ExclamationTriangleIcon,
   ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import ImageUpload from './ImageUpload';

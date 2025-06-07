@@ -1,26 +1,26 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
 // Test adding auth store
 import { useAuthStore } from './stores/authStore';
 
 // Test adding services (removed direct Supabase import)
-import { noteService } from './services/noteService';
+// import { noteService } from './services/noteService';
 
 // Test adding the suspected problematic component
 // import NoteGenerationPage from './pages/NoteGenerationPage';
 
 // Test individual imports from NoteGenerationPage dependencies
-import EditableNoteSection from './components/EditableNoteSection';
+// import EditableNoteSection from './components/EditableNoteSection';
 
 // Test if basic components work
 const HomePage = () => {
   const { user } = useAuthStore();
 
   // Test services connection
-  const testServices = () => {
-    console.log('Note service:', noteService);
-  };
+  // const testServices = () => {
+  //   console.log('Note service:', noteService);
+  // };
 
   return (
   <div className="min-h-screen bg-gray-50 flex items-center justify-center">

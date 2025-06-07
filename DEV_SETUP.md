@@ -130,6 +130,6 @@ If you see "command not found" errors, the startup scripts use absolute paths:
 ## Notes
 
 - ✅ **No manual startup required** - use the automated scripts
-- ✅ **No stdio interference** - AoT issues resolved
+- ✅ **No stdio interference** - process management optimized
 - ✅ **Automatic process monitoring** - servers restart if they crash
 - ✅ **Clean shutdown** - properly kills all processes

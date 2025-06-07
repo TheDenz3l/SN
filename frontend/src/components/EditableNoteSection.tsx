@@ -7,7 +7,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   PencilIcon,
   CheckIcon,
-  XMarkIcon
+  XMarkIcon,
+  ClipboardDocumentIcon
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
@@ -64,6 +65,28 @@ const EditableNoteSection: React.FC<EditableNoteSectionProps> = ({
     setIsEditing(false);
   };
 
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(content);
+      toast.success('Content copied to clipboard!');
+    } catch (error) {
+      console.error('Failed to copy content:', error);
+      // Fallback for older browsers
+      try {
+        const textArea = document.createElement('textarea');
+        textArea.value = content;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        toast.success('Content copied to clipboard!');
+      } catch (fallbackError) {
+        console.error('Fallback copy failed:', fallbackError);
+        toast.error('Failed to copy content');
+      }
+    }
+  };
+
 
 
 
@@ -104,12 +127,22 @@ const EditableNoteSection: React.FC<EditableNoteSectionProps> = ({
             <div className="whitespace-pre-wrap text-gray-900 min-h-[60px] p-2 rounded border border-transparent hover:border-gray-200 transition-colors">
               {content}
             </div>
-            <button
-              onClick={handleEdit}
-              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-400 hover:text-gray-600"
-            >
-              <PencilIcon className="h-4 w-4" />
-            </button>
+            <div className="absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                onClick={handleCopy}
+                className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
+                title="Copy content"
+              >
+                <ClipboardDocumentIcon className="h-4 w-4" />
+              </button>
+              <button
+                onClick={handleEdit}
+                className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
+                title="Edit content"
+              >
+                <PencilIcon className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         )}
       </div>

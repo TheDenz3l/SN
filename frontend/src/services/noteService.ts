@@ -39,6 +39,9 @@ export interface GenerateNoteRequest {
     taskId?: string;
     prompt: string;
     type: 'task' | 'comment' | 'general';
+    // Add section-specific settings for Generate Notes alignment
+    detailLevel?: string;
+    toneLevel?: number;
   }[];
 }
 
@@ -68,7 +71,7 @@ class NoteService {
   /**
    * Add new ISP task
    */
-  async addISPTask(userId: string, description: string): Promise<ISPTask> {
+  async addISPTask(_userId: string, description: string): Promise<ISPTask> {
     try {
       // Use backend API instead of direct Supabase calls
       const result = await ispTasksAPI.createTask({ description: description.trim() });
@@ -109,7 +112,7 @@ class NoteService {
   /**
    * Get user's notes
    */
-  async getUserNotes(userId: string, limit = 20): Promise<Note[]> {
+  async getUserNotes(_userId: string, limit = 20): Promise<Note[]> {
     try {
       // Use backend API instead of direct Supabase calls
       const token = localStorage.getItem('auth_token');
