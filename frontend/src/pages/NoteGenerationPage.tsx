@@ -6,7 +6,7 @@ import { noteService } from '../services/noteService';
 import { aiAPI } from '../services/apiService';
 import EnhancedNoteSection from '../components/EnhancedNoteSection';
 import CostIndicator from '../components/CostIndicator';
-import type { ISPTask, GenerateNoteRequest } from '../services/noteService';
+import type { ISPTask } from '../services/noteService';
 import toast from 'react-hot-toast';
 
 interface SectionData {
@@ -156,7 +156,7 @@ const NoteGenerationPage: React.FC = () => {
 
       // Update sections with generated content (no database IDs)
       setSections(prev => prev.map(section => {
-        const generatedSection = result.sections?.find(s =>
+        const generatedSection = result.sections?.find((s: any) =>
           s.user_prompt === section.prompt.trim()
         );
 
@@ -219,7 +219,7 @@ const NoteGenerationPage: React.FC = () => {
         });
         // Redirect to login after a short delay
         setTimeout(() => {
-          useAuthStore.getState().logout();
+          useAuthStore.getState().signOut();
         }, 2000);
       } else if (error.code === 'AUTH_SERVICE_ERROR') {
         toast.error('Authentication service is temporarily unavailable. Please try again in a moment.', {

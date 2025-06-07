@@ -17,8 +17,7 @@ import {
   ClipboardDocumentIcon,
   ChevronDownIcon,
   ChevronRightIcon,
-  PencilIcon,
-  XMarkIcon
+  PencilIcon
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
