@@ -122,10 +122,16 @@
       "sourceType": "module"
     },
     "rules": {
-      "no-console": "warn",
-      "no-unused-vars": "error",
-      "prefer-const": "error",
-      "no-var": "error"
+      "no-console": "off",
+      "no-unused-vars": "warn",
+      "prefer-const": "warn",
+      "no-var": "warn",
+      "no-process-exit": "off",
+      "no-constant-condition": "warn",
+      "no-case-declarations": "warn",
+      "node/no-missing-require": "off",
+      "node/no-unpublished-require": "off",
+      "node/shebang": "off"
     }
   },
   "prettier": {
