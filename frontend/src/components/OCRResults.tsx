@@ -16,6 +16,7 @@ import {
   ChartBarIcon
 } from '@heroicons/react/24/outline';
 import AutoResizeTextarea from './AutoResizeTextarea';
+import { Badge } from './ui';
 
 interface OCRTask {
   description: string;
@@ -124,11 +125,11 @@ const OCRResults: React.FC<OCRResultsProps> = ({
     setEditingIndex(null);
   };
 
-  // Get confidence color
-  const getConfidenceColor = (conf: number) => {
-    if (conf >= 80) return 'text-green-600 bg-green-100';
-    if (conf >= 60) return 'text-yellow-600 bg-yellow-100';
-    return 'text-red-600 bg-red-100';
+  // Get confidence variant
+  const getConfidenceVariant = (conf: number) => {
+    if (conf >= 80) return 'success';
+    if (conf >= 60) return 'warning';
+    return 'error';
   };
 
   // Get confidence label
@@ -147,9 +148,13 @@ const OCRResults: React.FC<OCRResultsProps> = ({
             OCR Processing Results
           </h3>
           <div className="flex items-center space-x-4">
-            <div className={`px-3 py-1 rounded-full text-sm font-medium ${getConfidenceColor(confidence)}`}>
+            <Badge
+              variant={getConfidenceVariant(confidence)}
+              style="subtle"
+              size="md"
+            >
               {getConfidenceLabel(confidence)} Confidence ({confidence}%)
-            </div>
+            </Badge>
             <div className="text-sm text-gray-600">
               {editedTasks.length} task{editedTasks.length !== 1 ? 's' : ''} found
             </div>
@@ -324,18 +329,26 @@ const OCRResults: React.FC<OCRResultsProps> = ({
 
                         <div className="flex items-center justify-between mt-3">
                           <div className="flex items-center space-x-3">
-                            <div className={`px-2 py-1 rounded text-xs font-medium ${getConfidenceColor(task.confidence)}`}>
+                            <Badge
+                              variant={getConfidenceVariant(task.confidence)}
+                              style="subtle"
+                              size="sm"
+                            >
                               {task.confidence}% confidence
-                            </div>
+                            </Badge>
                             {task.originalDescription && (
                               <span className="text-xs text-gray-500">
                                 (Auto-corrected)
                               </span>
                             )}
                             {task.structuredData && (
-                              <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                              <Badge
+                                variant="info"
+                                style="subtle"
+                                size="sm"
+                              >
                                 Structured
-                              </span>
+                              </Badge>
                             )}
                           </div>
 

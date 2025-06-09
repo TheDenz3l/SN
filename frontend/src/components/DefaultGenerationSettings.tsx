@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, memo, useCallback } from 'react';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { userAPI } from '../services/apiService';
+import { Button, Badge } from './ui';
 import type { User } from '../stores/authStore';
 
 interface DefaultGenerationSettingsProps {
@@ -315,33 +316,36 @@ const DefaultGenerationSettings: React.FC<DefaultGenerationSettingsProps> = memo
         {/* Action Buttons */}
         <div className="flex items-center justify-between">
           {hasUnsavedChanges && (
-            <div className="flex items-center text-amber-600">
-              <ExclamationTriangleIcon className="h-4 w-4 mr-1" />
-              <span className="text-sm">You have unsaved changes</span>
-            </div>
+            <Badge
+              variant="warning"
+              style="subtle"
+              size="sm"
+              icon={<ExclamationTriangleIcon className="h-3 w-3" />}
+            >
+              You have unsaved changes
+            </Badge>
           )}
           <div className="flex-1"></div>
           <div className="flex space-x-3">
             {hasUnsavedChanges && (
-              <button
+              <Button
+                variant="outline"
+                size="md"
                 onClick={resetToSaved}
                 disabled={isLoading}
-                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Reset
-              </button>
+              </Button>
             )}
-            <button
+            <Button
+              variant="primary"
+              size="md"
               onClick={savePreferences}
               disabled={isLoading || !hasUnsavedChanges}
-              className={`px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed transition-colors ${
-                hasUnsavedChanges
-                  ? 'bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              } ${isLoading ? 'opacity-50' : ''}`}
+              isLoading={isLoading}
             >
-              {isLoading ? 'Saving...' : hasUnsavedChanges ? 'Save Preferences' : 'No Changes'}
-            </button>
+              {hasUnsavedChanges ? 'Save Preferences' : 'No Changes'}
+            </Button>
           </div>
         </div>
       </div>

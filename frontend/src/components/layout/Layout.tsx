@@ -66,7 +66,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <div className="fixed inset-y-0 left-0 flex w-64 flex-col bg-white shadow-xl">
           <div className="flex h-16 items-center justify-between px-4">
             <Link to="/dashboard" className="flex items-center">
-              <DocumentTextIcon className="h-8 w-8 text-blue-600" />
+              <img
+                src="/assets/logo-transparent.png"
+                alt="SwiftNotes Logo"
+                className="h-12 w-12 hover:scale-105 transition-transform duration-200"
+              />
               <span className="ml-2 text-xl font-bold text-gray-900">SwiftNotes</span>
             </Link>
             <button
@@ -111,7 +115,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <div className="flex flex-col flex-grow bg-white border-r border-gray-200 pt-5 pb-4 overflow-y-auto">
           <div className="flex items-center flex-shrink-0 px-4">
             <Link to="/dashboard" className="flex items-center">
-              <DocumentTextIcon className="h-8 w-8 text-blue-600" />
+              <img
+                src="/assets/logo-transparent.png"
+                alt="SwiftNotes Logo"
+                className="h-12 w-12 hover:scale-105 transition-transform duration-200"
+              />
               <span className="ml-2 text-xl font-bold text-gray-900">SwiftNotes</span>
             </Link>
           </div>

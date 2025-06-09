@@ -3,7 +3,7 @@
  * Provides advanced AI content generation with style preservation
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   EyeIcon,
   SparklesIcon,
@@ -80,23 +80,39 @@ const EnhancedNoteSection: React.FC<EnhancedNoteSectionProps> = ({
   const [isInitialized, setIsInitialized] = useState(false);
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
 
+  // Use refs to track previous values and prevent unnecessary calls
+  const prevUserPreferencesRef = useRef<any>(null);
+  const hasNotifiedParentRef = useRef(false);
+
   // Initialize with user's default preferences
   useEffect(() => {
-    if (user?.preferences) {
+    if (user?.preferences &&
+        (!prevUserPreferencesRef.current ||
+         prevUserPreferencesRef.current.defaultToneLevel !== user.preferences.defaultToneLevel ||
+         prevUserPreferencesRef.current.defaultDetailLevel !== user.preferences.defaultDetailLevel)) {
+
       const defaultTone = user.preferences.defaultToneLevel ?? 50;
       const defaultDetail = user.preferences.defaultDetailLevel ?? 'brief';
 
-      // Always update with fresh preferences on user change
+      // Only update if values actually changed
       setToneLevel(defaultTone);
       setDetailLevel(defaultDetail);
       setIsInitialized(true);
+      hasNotifiedParentRef.current = false; // Reset notification flag
+
+      // Store current preferences for comparison
+      prevUserPreferencesRef.current = {
+        defaultToneLevel: user.preferences.defaultToneLevel,
+        defaultDetailLevel: user.preferences.defaultDetailLevel
+      };
     }
   }, [user?.preferences]);
 
-  // Notify parent when settings change (after initialization)
+  // Notify parent when settings change (after initialization, only once per change)
   useEffect(() => {
-    if (isInitialized && onSettingsChange) {
+    if (isInitialized && onSettingsChange && !hasNotifiedParentRef.current) {
       onSettingsChange({ detailLevel, toneLevel });
+      hasNotifiedParentRef.current = true;
     }
   }, [detailLevel, toneLevel, isInitialized, onSettingsChange]);
 
