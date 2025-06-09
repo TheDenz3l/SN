@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { ExclamationTriangleIcon, CogIcon, BookmarkIcon } from '@heroicons/react/24/outline';
 import { useAuthStore } from '../stores/authStore';
@@ -37,23 +37,16 @@ const NoteGenerationPage: React.FC = () => {
   const [freeGenerationsRemaining, setFreeGenerationsRemaining] = useState(2);
   const [, setGeneratedNoteId] = useState<string | null>(null);
 
-  // Load user's ISP tasks on component mount and calculate free generations
-  useEffect(() => {
-    if (user?.id) {
-      loadISPTasks();
-      calculateFreeGenerations();
-    }
-  }, [user?.id]);
-
-  const calculateFreeGenerations = () => {
+  // Memoize calculateFreeGenerations to prevent infinite re-renders
+  const calculateFreeGenerations = useCallback(() => {
     if (!user) return;
 
     const freeGenerationsUsed = user.freeGenerationsUsed || 0;
     const remaining = Math.max(0, 2 - freeGenerationsUsed);
     setFreeGenerationsRemaining(remaining);
-  };
+  }, [user?.freeGenerationsUsed]);
 
-  const loadISPTasks = async () => {
+  const loadISPTasks = useCallback(async () => {
     if (!user?.id) return;
 
     try {
@@ -83,13 +76,27 @@ const NoteGenerationPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user?.id]);
 
-  const updateSectionPrompt = (index: number, prompt: string) => {
+  // Load user's ISP tasks on component mount
+  useEffect(() => {
+    if (user?.id) {
+      loadISPTasks();
+    }
+  }, [user?.id, loadISPTasks]);
+
+  // Calculate free generations separately when user data changes
+  useEffect(() => {
+    if (user?.id) {
+      calculateFreeGenerations();
+    }
+  }, [user?.id, user?.freeGenerationsUsed]);
+
+  const updateSectionPrompt = useCallback((index: number, prompt: string) => {
     setSections(prev => prev.map((section, i) =>
       i === index ? { ...section, prompt } : section
     ));
-  };
+  }, []);
 
   const addCustomSection = () => {
     setSections(prev => [...prev, {
@@ -98,9 +105,9 @@ const NoteGenerationPage: React.FC = () => {
     }]);
   };
 
-  const removeSection = (index: number) => {
+  const removeSection = useCallback((index: number) => {
     setSections(prev => prev.filter((_, i) => i !== index));
-  };
+  }, []);
 
   // const updateSectionContent = (index: number, content: string, isEdited: boolean) => {
   //   setSections(prev => prev.map((section, i) =>
@@ -108,11 +115,11 @@ const NoteGenerationPage: React.FC = () => {
   //   ));
   // };
 
-  const updateSectionSettings = (index: number, settings: { detailLevel: string; toneLevel: number }) => {
+  const updateSectionSettings = useCallback((index: number, settings: { detailLevel: string; toneLevel: number }) => {
     setSections(prev => prev.map((section, i) =>
       i === index ? { ...section, detailLevel: settings.detailLevel, toneLevel: settings.toneLevel } : section
     ));
-  };
+  }, []);
 
   const generateNote = async () => {
     if (!user?.id || !user.writingStyle) {
@@ -388,7 +395,7 @@ const NoteGenerationPage: React.FC = () => {
                   taskDescription={section.taskId ? getTaskDescription(section.taskId) : undefined}
                   onPromptChange={(prompt) => updateSectionPrompt(index, prompt)}
                   onRemove={section.type !== 'task' ? () => removeSection(index) : undefined}
-                  onSettingsChange={(settings) => updateSectionSettings(index, settings)}
+                  onSettingsChange={(settings: { detailLevel: string; toneLevel: number }) => updateSectionSettings(index, settings)}
                 />
 
 

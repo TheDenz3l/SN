@@ -84,7 +84,11 @@ const LandingPage: React.FC = () => {
         <nav className="flex items-center justify-between p-6 lg:px-8" aria-label="Global">
           <div className="flex lg:flex-1">
             <Link to="/" className="flex items-center -m-1.5 p-1.5">
-              <DocumentTextIcon className="h-8 w-8 text-primary-600" />
+              <img
+                src="/assets/logo-transparent.png"
+                alt="SwiftNotes Logo"
+                className="h-12 w-12 hover:scale-105 transition-transform duration-200"
+              />
               <span className="ml-2 text-xl font-bold text-gray-900">SwiftNotes</span>
             </Link>
           </div>

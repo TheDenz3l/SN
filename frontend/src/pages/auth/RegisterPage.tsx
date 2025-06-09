@@ -36,6 +36,7 @@ const RegisterPage: React.FC = () => {
     watch,
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
+    mode: 'onSubmit',
   });
 
   const password = watch('password');
@@ -51,7 +52,7 @@ const RegisterPage: React.FC = () => {
     if (/[^a-zA-Z\d]/.test(password)) strength++;
 
     const labels = ['Very Weak', 'Weak', 'Fair', 'Good', 'Strong'];
-    const colors = ['bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-blue-500', 'bg-green-500'];
+    const colors = ['bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-primary-500', 'bg-green-500'];
     
     return {
       strength,
@@ -156,70 +157,74 @@ const RegisterPage: React.FC = () => {
           <label htmlFor="password" className="block text-sm font-medium text-gray-700">
             Password
           </label>
-          <div className="mt-1 relative">
-            <input
-              {...register('password')}
-              type={showPassword ? 'text' : 'password'}
-              autoComplete="new-password"
-              className={`input-field pr-10 ${errors.password ? 'input-error' : ''}`}
-              placeholder="Create a password"
-            />
-            <button
-              type="button"
-              className="absolute inset-y-0 right-0 pr-3 flex items-center"
-              onClick={() => setShowPassword(!showPassword)}
-            >
-              {showPassword ? (
-                <EyeSlashIcon className="h-5 w-5 text-gray-400" />
-              ) : (
-                <EyeIcon className="h-5 w-5 text-gray-400" />
-              )}
-            </button>
-          </div>
-          
-          {/* Password strength indicator */}
-          {password && (
-            <div className="mt-2">
-              <div className="flex items-center space-x-2">
-                <div className="flex-1 bg-gray-200 rounded-full h-2">
-                  <div
-                    className={`h-2 rounded-full transition-all duration-300 ${passwordStrength.color}`}
-                    style={{ width: `${(passwordStrength.strength / 5) * 100}%` }}
-                  />
-                </div>
-                <span className="text-xs text-gray-600">{passwordStrength.label}</span>
-              </div>
+          <div className="mt-1">
+            <div className="relative">
+              <input
+                {...register('password')}
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="new-password"
+                className={`input-field pr-10 ${errors.password ? 'input-error' : ''}`}
+                placeholder="Create a password"
+              />
+              <button
+                type="button"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? (
+                  <EyeSlashIcon className="h-5 w-5 text-gray-400" />
+                ) : (
+                  <EyeIcon className="h-5 w-5 text-gray-400" />
+                )}
+              </button>
             </div>
-          )}
-          
-          {errors.password && (
-            <p className="mt-1 text-sm text-error-600">{errors.password.message}</p>
-          )}
+
+            {/* Password strength indicator */}
+            {password && (
+              <div className="mt-2">
+                <div className="flex items-center space-x-2">
+                  <div className="flex-1 bg-gray-200 rounded-full h-2">
+                    <div
+                      className={`h-2 rounded-full transition-all duration-300 ${passwordStrength.color}`}
+                      style={{ width: `${(passwordStrength.strength / 5) * 100}%` }}
+                    />
+                  </div>
+                  <span className="text-xs text-gray-600">{passwordStrength.label}</span>
+                </div>
+              </div>
+            )}
+
+            {errors.password && (
+              <p className="mt-1 text-sm text-error-600">{errors.password.message}</p>
+            )}
+          </div>
         </div>
 
         <div>
           <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
             Confirm password
           </label>
-          <div className="mt-1 relative">
-            <input
-              {...register('confirmPassword')}
-              type={showConfirmPassword ? 'text' : 'password'}
-              autoComplete="new-password"
-              className={`input-field pr-10 ${errors.confirmPassword ? 'input-error' : ''}`}
-              placeholder="Confirm your password"
-            />
-            <button
-              type="button"
-              className="absolute inset-y-0 right-0 pr-3 flex items-center"
-              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-            >
-              {showConfirmPassword ? (
-                <EyeSlashIcon className="h-5 w-5 text-gray-400" />
-              ) : (
-                <EyeIcon className="h-5 w-5 text-gray-400" />
-              )}
-            </button>
+          <div className="mt-1">
+            <div className="relative">
+              <input
+                {...register('confirmPassword')}
+                type={showConfirmPassword ? 'text' : 'password'}
+                autoComplete="new-password"
+                className={`input-field pr-10 ${errors.confirmPassword ? 'input-error' : ''}`}
+                placeholder="Confirm your password"
+              />
+              <button
+                type="button"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              >
+                {showConfirmPassword ? (
+                  <EyeSlashIcon className="h-5 w-5 text-gray-400" />
+                ) : (
+                  <EyeIcon className="h-5 w-5 text-gray-400" />
+                )}
+              </button>
+            </div>
             {errors.confirmPassword && (
               <p className="mt-1 text-sm text-error-600">{errors.confirmPassword.message}</p>
             )}
@@ -251,7 +256,7 @@ const RegisterPage: React.FC = () => {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-500 hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <div className="flex items-center">
@@ -266,9 +271,9 @@ const RegisterPage: React.FC = () => {
       </form>
 
       {/* Free tier benefits */}
-      <div className="mt-6 p-4 bg-green-50 rounded-lg border border-green-200">
-        <h3 className="text-sm font-medium text-green-900 mb-2">Free Tier Includes:</h3>
-        <ul className="text-xs text-green-700 space-y-1">
+      <div className="mt-6 p-4 bg-primary-50 rounded-lg border border-primary-200">
+        <h3 className="text-sm font-medium text-primary-900 mb-2">Free Tier Includes:</h3>
+        <ul className="text-xs text-primary-700 space-y-1">
           <li>• 10 AI generations per hour</li>
           <li>• 25 generations per day</li>
           <li>• Basic note templates</li>

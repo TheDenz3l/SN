@@ -26,6 +26,7 @@ const LoginPage: React.FC = () => {
     formState: { errors },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
+    mode: 'onSubmit',
   });
 
   const onSubmit = async (data: LoginFormData) => {
@@ -54,7 +55,7 @@ const LoginPage: React.FC = () => {
           Or{' '}
           <Link
             to="/register"
-            className="font-medium text-blue-600 hover:text-blue-500"
+            className="font-medium text-primary-600 hover:text-primary-500"
           >
             create a new account
           </Link>
@@ -84,25 +85,27 @@ const LoginPage: React.FC = () => {
           <label htmlFor="password" className="block text-sm font-medium text-gray-700">
             Password
           </label>
-          <div className="mt-1 relative">
-            <input
-              {...register('password')}
-              type={showPassword ? 'text' : 'password'}
-              autoComplete="current-password"
-              className={`input-field pr-10 ${errors.password ? 'input-error' : ''}`}
-              placeholder="Enter your password"
-            />
-            <button
-              type="button"
-              className="absolute inset-y-0 right-0 pr-3 flex items-center"
-              onClick={() => setShowPassword(!showPassword)}
-            >
-              {showPassword ? (
-                <EyeSlashIcon className="h-5 w-5 text-gray-400" />
-              ) : (
-                <EyeIcon className="h-5 w-5 text-gray-400" />
-              )}
-            </button>
+          <div className="mt-1">
+            <div className="relative">
+              <input
+                {...register('password')}
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                className={`input-field pr-10 ${errors.password ? 'input-error' : ''}`}
+                placeholder="Enter your password"
+              />
+              <button
+                type="button"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? (
+                  <EyeSlashIcon className="h-5 w-5 text-gray-400" />
+                ) : (
+                  <EyeIcon className="h-5 w-5 text-gray-400" />
+                )}
+              </button>
+            </div>
             {errors.password && (
               <p className="mt-1 text-sm text-error-600">{errors.password.message}</p>
             )}
@@ -114,7 +117,7 @@ const LoginPage: React.FC = () => {
             <input
               {...register('rememberMe')}
               type="checkbox"
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
             />
             <label htmlFor="rememberMe" className="ml-2 block text-sm text-gray-900">
               Remember me
@@ -124,7 +127,7 @@ const LoginPage: React.FC = () => {
           <div className="text-sm">
             <Link
               to="/forgot-password"
-              className="font-medium text-blue-600 hover:text-blue-500"
+              className="font-medium text-primary-600 hover:text-primary-500"
             >
               Forgot your password?
             </Link>
@@ -135,7 +138,7 @@ const LoginPage: React.FC = () => {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-500 hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <div className="flex items-center">
@@ -150,12 +153,12 @@ const LoginPage: React.FC = () => {
       </form>
 
       {/* Demo credentials */}
-      <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-        <h3 className="text-sm font-medium text-blue-900 mb-2">Demo Credentials</h3>
-        <div className="text-xs text-blue-700 space-y-1">
+      <div className="mt-6 p-4 bg-primary-50 rounded-lg border border-primary-200">
+        <h3 className="text-sm font-medium text-primary-900 mb-2">Demo Credentials</h3>
+        <div className="text-xs text-primary-700 space-y-1">
           <p><strong>Email:</strong> demo@swiftnotes.app</p>
           <p><strong>Password:</strong> demo123</p>
-          <p className="text-blue-600 mt-2">Use these credentials to explore the application</p>
+          <p className="text-primary-600 mt-2">Use these credentials to explore the application</p>
         </div>
       </div>
 
@@ -163,11 +166,11 @@ const LoginPage: React.FC = () => {
       <div className="text-center">
         <p className="text-xs text-gray-500">
           By signing in, you agree to our{' '}
-          <Link to="/terms" className="text-blue-600 hover:text-blue-500">
+          <Link to="/terms" className="text-primary-600 hover:text-primary-500">
             Terms of Service
           </Link>{' '}
           and{' '}
-          <Link to="/privacy" className="text-blue-600 hover:text-blue-500">
+          <Link to="/privacy" className="text-primary-600 hover:text-primary-500">
             Privacy Policy
           </Link>
         </p>

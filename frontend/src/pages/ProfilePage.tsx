@@ -21,6 +21,7 @@ import { useAuthStore } from '../stores/authStore';
 import { userAPI, ispTasksAPI } from '../services/apiService';
 import AutoResizeTextarea from '../components/AutoResizeTextarea';
 import DefaultGenerationSettings from '../components/DefaultGenerationSettings';
+import { Badge } from '../components/ui';
 
 // Validation schemas
 const profileSchema = z.object({
@@ -350,10 +351,14 @@ const SettingsPage: React.FC = () => {
             </div>
             <div className="flex items-center space-x-2">
               {user?.writingStyle && (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                  <CheckCircleIcon className="h-3 w-3 mr-1" />
+                <Badge
+                  variant="success"
+                  style="subtle"
+                  size="sm"
+                  icon={<CheckCircleIcon className="h-3 w-3" />}
+                >
                   Configured
-                </span>
+                </Badge>
               )}
               <button
                 onClick={() => setShowWritingStyleForm(!showWritingStyleForm)}
