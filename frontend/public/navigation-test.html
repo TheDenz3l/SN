@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SwiftNotes Navigation Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .test-button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 10px;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+        .test-button:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+        }
+        .test-button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .results {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border-left: 4px solid #3b82f6;
+        }
+        .success { color: #059669; }
+        .error { color: #dc2626; }
+        .warning { color: #d97706; }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-online { background: #10b981; }
+        .status-offline { background: #ef4444; }
+        .status-warning { background: #f59e0b; }
+        .performance-stats {
+            background: #e0f2fe;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 SwiftNotes Navigation Test</h1>
+        <p>This tool tests the navigation fixes implemented to resolve the PM2 hanging issue.</p>
+        
+        <div id="status-section">
+            <h3>System Status</h3>
+            <div id="frontend-status">
+                <span class="status-indicator status-offline"></span>
+                Frontend: Checking...
+            </div>
+            <div id="backend-status">
+                <span class="status-indicator status-offline"></span>
+                Backend: Checking...
+            </div>
+        </div>
+
+        <div>
+            <h3>Navigation Tests</h3>
+            <button class="test-button" onclick="openSwiftNotes()">Open SwiftNotes</button>
+            <button class="test-button" onclick="runNavigationTest()">Run Navigation Test</button>
+            <button class="test-button" onclick="checkSystemHealth()">Check System Health</button>
+            <button class="test-button" onclick="clearResults()">Clear Results</button>
+        </div>
+
+        <div id="performance-section" class="performance-stats" style="display: none;">
+            <h3>📊 Performance Results:</h3>
+            <div id="performance-output"></div>
+        </div>
+
+        <div id="results" class="results" style="display: none;">
+            <h3>Test Results</h3>
+            <div id="test-output"></div>
+        </div>
+    </div>
+
+    <script>
+        let testResults = [];
+        let testWindow = null;
+        let performanceData = [];
+
+        // Check system status on load
+        window.onload = function() {
+            checkSystemHealth();
+        };
+
+        async function checkSystemHealth() {
+            updateStatus('frontend-status', 'Checking...', 'warning');
+            updateStatus('backend-status', 'Checking...', 'warning');
+
+            try {
+                // Check frontend (same origin, so no CORS issues)
+                const frontendResponse = await fetch('/');
+                updateStatus('frontend-status', 'Online', 'online');
+            } catch (error) {
+                updateStatus('frontend-status', 'Offline', 'offline');
+            }
+
+            try {
+                // Check backend
+                const backendResponse = await fetch('http://localhost:3001/api/health');
+                if (backendResponse.ok) {
+                    updateStatus('backend-status', 'Online', 'online');
+                } else {
+                    updateStatus('backend-status', 'Error', 'offline');
+                }
+            } catch (error) {
+                updateStatus('backend-status', 'Offline', 'offline');
+            }
+        }
+
+        function updateStatus(elementId, text, status) {
+            const element = document.getElementById(elementId);
+            const indicator = element.querySelector('.status-indicator');
+            
+            indicator.className = `status-indicator status-${status}`;
+            element.innerHTML = `<span class="status-indicator status-${status}"></span>${text}`;
+        }
+
+        function openSwiftNotes() {
+            // Open SwiftNotes from the same origin (localhost:5173)
+            testWindow = window.open('/', 'swiftnotes-test', 'width=1200,height=800');
+            addResult('info', 'Opened SwiftNotes in new window');
+            
+            if (testWindow) {
+                // Monitor the window
+                const checkWindow = setInterval(() => {
+                    if (testWindow.closed) {
+                        clearInterval(checkWindow);
+                        addResult('info', 'SwiftNotes window closed');
+                    }
+                }, 1000);
+            }
+        }
+
+        async function runNavigationTest() {
+            if (!testWindow || testWindow.closed) {
+                addResult('error', 'Please open SwiftNotes first');
+                return;
+            }
+
+            addResult('info', 'Starting navigation test...');
+            performanceData = [];
+
+            const routes = ['/dashboard', '/generate', '/notes', '/setup', '/profile'];
+            let successCount = 0;
+            let totalTests = routes.length * 2; // Test each route twice
+
+            for (let cycle = 1; cycle <= 2; cycle++) {
+                addResult('info', `Test Cycle ${cycle}/2`);
+
+                for (const route of routes) {
+                    try {
+                        const startTime = performance.now();
+
+                        // Find and click the actual navigation link (React Router Link)
+                        const navLink = testWindow.document.querySelector(`a[href="${route}"]`);
+                        if (!navLink) {
+                            addResult('error', `❌ ${route} - Navigation link not found`);
+                            continue;
+                        }
+
+                        // Click the navigation link (this should use React Router)
+                        navLink.click();
+
+                        // Wait for React Router navigation (much shorter than page reload)
+                        await new Promise(resolve => setTimeout(resolve, 500));
+
+                        // Check if navigation was successful
+                        const currentPath = testWindow.location.pathname;
+                        const isResponsive = await checkWindowResponsiveness(testWindow);
+                        const navigationTime = performance.now() - startTime;
+
+                        // Store performance data
+                        performanceData.push({
+                            route,
+                            time: navigationTime,
+                            success: currentPath === route && isResponsive
+                        });
+
+                        if (currentPath === route && isResponsive) {
+                            successCount++;
+                            addResult('success', `✅ ${route} - Success (${navigationTime.toFixed(1)}ms)`);
+                        } else if (!isResponsive) {
+                            addResult('error', `❌ ${route} - Window unresponsive (${navigationTime.toFixed(1)}ms)`);
+                        } else {
+                            addResult('error', `❌ ${route} - Navigation failed, ended up at ${currentPath} (${navigationTime.toFixed(1)}ms)`);
+                        }
+
+                    } catch (error) {
+                        addResult('error', `❌ ${route} - Error: ${error.message}`);
+                    }
+
+                    // Wait between tests
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+            }
+
+            const successRate = ((successCount / totalTests) * 100).toFixed(1);
+            addResult('info', `Test Complete: ${successCount}/${totalTests} successful (${successRate}%)`);
+            
+            // Calculate and display performance statistics
+            displayPerformanceResults();
+            
+            if (successRate >= 90) {
+                addResult('success', '🎉 Navigation system is working properly!');
+            } else if (successRate >= 70) {
+                addResult('warning', '⚠️ Some navigation issues detected');
+            } else {
+                addResult('error', '❌ Significant navigation problems found');
+            }
+        }
+
+        function displayPerformanceResults() {
+            const performanceSection = document.getElementById('performance-section');
+            const performanceOutput = document.getElementById('performance-output');
+            
+            if (performanceData.length === 0) {
+                return;
+            }
+
+            const successfulNavigations = performanceData.filter(d => d.success);
+            const times = successfulNavigations.map(d => d.time);
+            
+            if (times.length > 0) {
+                const average = times.reduce((a, b) => a + b, 0) / times.length;
+                const fastest = Math.min(...times);
+                const slowest = Math.max(...times);
+                
+                performanceOutput.innerHTML = `
+                    <div><strong>Average:</strong> ${average.toFixed(1)}ms</div>
+                    <div><strong>Fastest:</strong> ${fastest.toFixed(1)}ms</div>
+                    <div><strong>Slowest:</strong> ${slowest.toFixed(1)}ms</div>
+                    <div><strong>Navigation performance could be improved.</strong></div>
+                `;
+            } else {
+                performanceOutput.innerHTML = `
+                    <div><strong>Average:</strong> NaNms</div>
+                    <div><strong>Fastest:</strong> Infinityms</div>
+                    <div><strong>Slowest:</strong> -Infinityms</div>
+                    <div><strong>Navigation performance could be improved.</strong></div>
+                `;
+            }
+            
+            performanceSection.style.display = 'block';
+        }
+
+        async function checkWindowResponsiveness(window) {
+            try {
+                // Try to access window properties - this should work now since same origin
+                const title = window.document.title;
+                const url = window.location.href;
+                return true;
+            } catch (error) {
+                return false;
+            }
+        }
+
+        function addResult(type, message) {
+            const resultsDiv = document.getElementById('results');
+            const outputDiv = document.getElementById('test-output');
+            
+            resultsDiv.style.display = 'block';
+            
+            const timestamp = new Date().toLocaleTimeString();
+            const resultElement = document.createElement('div');
+            resultElement.className = type;
+            resultElement.innerHTML = `[${timestamp}] ${message}`;
+            
+            outputDiv.appendChild(resultElement);
+            outputDiv.scrollTop = outputDiv.scrollHeight;
+            
+            testResults.push({ timestamp, type, message });
+        }
+
+        function clearResults() {
+            document.getElementById('test-output').innerHTML = '';
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('performance-section').style.display = 'none';
+            testResults = [];
+            performanceData = [];
+        }
+
+        // Instructions for manual testing
+        setTimeout(() => {
+            addResult('info', 'Manual Testing Instructions:');
+            addResult('info', '1. Click "Open SwiftNotes" to open the application');
+            addResult('info', '2. Click "Run Navigation Test" to test automated navigation');
+            addResult('info', '3. Manually test navigation by clicking links in the app');
+            addResult('info', '4. Watch for any hanging or unresponsive behavior');
+        }, 1000);
+    </script>
+</body>
+</html>

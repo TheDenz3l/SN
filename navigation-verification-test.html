@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SwiftNotes Navigation Verification Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .status-card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            border-left: 4px solid #6c757d;
+        }
+        
+        .status-card.online { border-left-color: #28a745; }
+        .status-card.offline { border-left-color: #dc3545; }
+        .status-card.warning { border-left-color: #ffc107; }
+        
+        .test-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            margin: 5px;
+            transition: all 0.3s ease;
+        }
+        
+        .test-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .test-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .results {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .result-item {
+            padding: 8px 12px;
+            margin: 4px 0;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 13px;
+        }
+        
+        .result-item.success { background: #d4edda; color: #155724; }
+        .result-item.error { background: #f8d7da; color: #721c24; }
+        .result-item.info { background: #d1ecf1; color: #0c5460; }
+        .result-item.warning { background: #fff3cd; color: #856404; }
+        
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .metric {
+            text-align: center;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .metric-label {
+            font-size: 12px;
+            color: #6c757d;
+            text-transform: uppercase;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧪 SwiftNotes Navigation Verification Test</h1>
+            <p>Comprehensive testing for React Router navigation performance</p>
+        </div>
+
+        <div class="status-grid">
+            <div class="status-card" id="swiftnotes-status">
+                <h3>SwiftNotes Status</h3>
+                <div id="swiftnotes-indicator">🔴 Offline</div>
+            </div>
+            <div class="status-card" id="navigation-status">
+                <h3>Navigation Health</h3>
+                <div id="navigation-indicator">⏳ Not Tested</div>
+            </div>
+            <div class="status-card" id="performance-status">
+                <h3>Performance</h3>
+                <div id="performance-indicator">⏳ Not Measured</div>
+            </div>
+        </div>
+
+        <div>
+            <h3>Navigation Tests</h3>
+            <button class="test-button" onclick="openSwiftNotes()">Open SwiftNotes</button>
+            <button class="test-button" onclick="verifyNavigationSetup()">Verify Setup</button>
+            <button class="test-button" onclick="runReactRouterTest()">Test React Router</button>
+            <button class="test-button" onclick="runPerformanceTest()">Performance Test</button>
+            <button class="test-button" onclick="clearResults()">Clear Results</button>
+        </div>
+
+        <div class="metrics" id="metrics" style="display: none;">
+            <div class="metric">
+                <div class="metric-value" id="total-tests">0</div>
+                <div class="metric-label">Total Tests</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value" id="success-rate">0%</div>
+                <div class="metric-label">Success Rate</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value" id="avg-time">0ms</div>
+                <div class="metric-label">Avg Navigation</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value" id="router-links">0</div>
+                <div class="metric-label">Router Links</div>
+            </div>
+        </div>
+
+        <div id="results" class="results" style="display: none;">
+            <h3>Test Results</h3>
+            <div id="test-output"></div>
+        </div>
+    </div>
+
+    <script>
+        let testResults = [];
+        let testWindow = null;
+        let testMetrics = {
+            totalTests: 0,
+            successfulTests: 0,
+            totalTime: 0,
+            routerLinks: 0
+        };
+
+        // Check system status on load
+        window.onload = function() {
+            checkSwiftNotesStatus();
+        };
+
+        function addResult(type, message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const resultItem = document.createElement('div');
+            resultItem.className = `result-item ${type}`;
+            resultItem.textContent = `[${timestamp}] ${message}`;
+            
+            const output = document.getElementById('test-output');
+            output.appendChild(resultItem);
+            output.scrollTop = output.scrollHeight;
+            
+            document.getElementById('results').style.display = 'block';
+            
+            testResults.push({ type, message, timestamp });
+        }
+
+        function updateStatus(elementId, text, status) {
+            const element = document.getElementById(elementId);
+            const statusMap = {
+                'online': '🟢',
+                'offline': '🔴',
+                'warning': '🟡',
+                'testing': '🔄'
+            };
+            element.innerHTML = `${statusMap[status] || '⚪'} ${text}`;
+            element.parentElement.className = `status-card ${status}`;
+        }
+
+        function updateMetrics() {
+            document.getElementById('total-tests').textContent = testMetrics.totalTests;
+            document.getElementById('success-rate').textContent = 
+                testMetrics.totalTests > 0 ? 
+                Math.round((testMetrics.successfulTests / testMetrics.totalTests) * 100) + '%' : '0%';
+            document.getElementById('avg-time').textContent = 
+                testMetrics.totalTests > 0 ? 
+                Math.round(testMetrics.totalTime / testMetrics.totalTests) + 'ms' : '0ms';
+            document.getElementById('router-links').textContent = testMetrics.routerLinks;
+            document.getElementById('metrics').style.display = 'grid';
+        }
+
+        async function checkSwiftNotesStatus() {
+            try {
+                const response = await fetch('http://localhost:5173', { method: 'HEAD' });
+                if (response.ok) {
+                    updateStatus('swiftnotes-indicator', 'Online', 'online');
+                    addResult('success', 'SwiftNotes is running on localhost:5173');
+                } else {
+                    updateStatus('swiftnotes-indicator', 'Error', 'warning');
+                    addResult('warning', 'SwiftNotes responded with error');
+                }
+            } catch (error) {
+                updateStatus('swiftnotes-indicator', 'Offline', 'offline');
+                addResult('error', 'SwiftNotes is not running. Please start the development server.');
+            }
+        }
+
+        function openSwiftNotes() {
+            testWindow = window.open('http://localhost:5173', 'swiftnotes-test', 'width=1200,height=800');
+            addResult('info', 'Opened SwiftNotes in new window');
+            
+            if (testWindow) {
+                const checkWindow = setInterval(() => {
+                    if (testWindow.closed) {
+                        clearInterval(checkWindow);
+                        addResult('info', 'SwiftNotes window closed');
+                        updateStatus('swiftnotes-indicator', 'Closed', 'offline');
+                    }
+                }, 1000);
+            }
+        }
+
+        async function verifyNavigationSetup() {
+            if (!testWindow || testWindow.closed) {
+                addResult('error', 'Please open SwiftNotes first');
+                return;
+            }
+
+            addResult('info', 'Verifying navigation setup...');
+            updateStatus('navigation-indicator', 'Verifying...', 'testing');
+
+            try {
+                // Wait for page to load
+                await new Promise(resolve => setTimeout(resolve, 2000));
+
+                // Check for React Router
+                const hasReactRouter = await testWindow.eval(`
+                    !!window.history?.pushState && !!document.querySelector('[data-reactroot], #root')
+                `);
+
+                // Count navigation links
+                const linkInfo = await testWindow.eval(`
+                    const allLinks = document.querySelectorAll('a[href]');
+                    const routerLinks = Array.from(allLinks).filter(link => 
+                        link.href.includes(window.location.origin) && 
+                        !link.hasAttribute('target') &&
+                        !link.href.includes('mailto:') &&
+                        !link.href.includes('tel:')
+                    );
+                    
+                    const routes = routerLinks.map(link => {
+                        const url = new URL(link.href);
+                        return url.pathname;
+                    }).filter((route, index, arr) => arr.indexOf(route) === index);
+                    
+                    ({
+                        totalLinks: allLinks.length,
+                        routerLinks: routerLinks.length,
+                        routes: routes
+                    })
+                `);
+
+                testMetrics.routerLinks = linkInfo.routerLinks;
+
+                if (hasReactRouter) {
+                    updateStatus('navigation-indicator', 'React Router OK', 'online');
+                    addResult('success', `✅ React Router detected`);
+                    addResult('info', `Found ${linkInfo.routerLinks} router links, ${linkInfo.totalLinks} total links`);
+                    addResult('info', `Available routes: ${linkInfo.routes.join(', ')}`);
+                } else {
+                    updateStatus('navigation-indicator', 'No React Router', 'warning');
+                    addResult('warning', '⚠️ React Router not detected');
+                }
+
+                updateMetrics();
+
+            } catch (error) {
+                updateStatus('navigation-indicator', 'Verification Failed', 'offline');
+                addResult('error', `Verification failed: ${error.message}`);
+            }
+        }
+
+        async function runReactRouterTest() {
+            if (!testWindow || testWindow.closed) {
+                addResult('error', 'Please open SwiftNotes first');
+                return;
+            }
+
+            addResult('info', 'Testing React Router navigation...');
+            updateStatus('navigation-indicator', 'Testing...', 'testing');
+
+            const routes = ['/dashboard', '/generate', '/notes', '/setup', '/profile'];
+            let successCount = 0;
+
+            for (const route of routes) {
+                try {
+                    const startTime = Date.now();
+                    testMetrics.totalTests++;
+
+                    // Find and click the navigation link
+                    const navLink = testWindow.document.querySelector(`a[href="${route}"]`);
+                    if (!navLink) {
+                        addResult('error', `❌ ${route} - Navigation link not found`);
+                        continue;
+                    }
+
+                    // Click the link (React Router navigation)
+                    navLink.click();
+
+                    // Wait for navigation
+                    await new Promise(resolve => setTimeout(resolve, 300));
+
+                    // Check navigation success
+                    const currentPath = testWindow.location.pathname;
+                    const navigationTime = Date.now() - startTime;
+                    testMetrics.totalTime += navigationTime;
+
+                    if (currentPath === route) {
+                        successCount++;
+                        testMetrics.successfulTests++;
+                        addResult('success', `✅ ${route} - Success (${navigationTime}ms)`);
+                    } else {
+                        addResult('error', `❌ ${route} - Failed, ended up at ${currentPath} (${navigationTime}ms)`);
+                    }
+
+                } catch (error) {
+                    addResult('error', `❌ ${route} - Error: ${error.message}`);
+                }
+
+                // Short delay between tests
+                await new Promise(resolve => setTimeout(resolve, 200));
+            }
+
+            const successRate = Math.round((successCount / routes.length) * 100);
+            if (successRate === 100) {
+                updateStatus('navigation-indicator', 'All Tests Passed', 'online');
+                addResult('success', `🎉 All navigation tests passed! (${successRate}%)`);
+            } else {
+                updateStatus('navigation-indicator', `${successRate}% Success`, 'warning');
+                addResult('warning', `⚠️ ${successCount}/${routes.length} tests passed (${successRate}%)`);
+            }
+
+            updateMetrics();
+        }
+
+        async function runPerformanceTest() {
+            if (!testWindow || testWindow.closed) {
+                addResult('error', 'Please open SwiftNotes first');
+                return;
+            }
+
+            addResult('info', 'Running comprehensive performance test...');
+            updateStatus('performance-indicator', 'Testing...', 'testing');
+
+            const routes = ['/dashboard', '/generate', '/notes', '/setup', '/profile'];
+            const performanceData = [];
+
+            // Run multiple cycles for better performance data
+            for (let cycle = 1; cycle <= 3; cycle++) {
+                addResult('info', `Performance test cycle ${cycle}/3`);
+
+                for (const route of routes) {
+                    try {
+                        const startTime = performance.now();
+
+                        // Navigate using React Router
+                        const navLink = testWindow.document.querySelector(`a[href="${route}"]`);
+                        if (navLink) {
+                            navLink.click();
+                            await new Promise(resolve => setTimeout(resolve, 100));
+
+                            const endTime = performance.now();
+                            const navigationTime = endTime - startTime;
+
+                            performanceData.push({
+                                route,
+                                cycle,
+                                time: navigationTime
+                            });
+                        }
+                    } catch (error) {
+                        addResult('error', `Performance test error for ${route}: ${error.message}`);
+                    }
+                }
+            }
+
+            // Calculate performance metrics
+            const avgTime = performanceData.reduce((sum, data) => sum + data.time, 0) / performanceData.length;
+            const maxTime = Math.max(...performanceData.map(data => data.time));
+            const minTime = Math.min(...performanceData.map(data => data.time));
+
+            addResult('info', `📊 Performance Results:`);
+            addResult('info', `   Average: ${avgTime.toFixed(2)}ms`);
+            addResult('info', `   Fastest: ${minTime.toFixed(2)}ms`);
+            addResult('info', `   Slowest: ${maxTime.toFixed(2)}ms`);
+
+            if (avgTime < 50) {
+                updateStatus('performance-indicator', 'Excellent', 'online');
+                addResult('success', '🚀 Excellent performance! Navigation is very fast.');
+            } else if (avgTime < 200) {
+                updateStatus('performance-indicator', 'Good', 'online');
+                addResult('success', '✅ Good performance! Navigation is responsive.');
+            } else {
+                updateStatus('performance-indicator', 'Slow', 'warning');
+                addResult('warning', '⚠️ Navigation performance could be improved.');
+            }
+        }
+
+        function clearResults() {
+            document.getElementById('test-output').innerHTML = '';
+            document.getElementById('results').style.display = 'none';
+            testResults = [];
+            testMetrics = { totalTests: 0, successfulTests: 0, totalTime: 0, routerLinks: 0 };
+            updateMetrics();
+        }
+
+        // Instructions for manual testing
+        setTimeout(() => {
+            addResult('info', 'Navigation Verification Instructions:');
+            addResult('info', '1. Click "Open SwiftNotes" to open the application');
+            addResult('info', '2. Click "Verify Setup" to check React Router configuration');
+            addResult('info', '3. Click "Test React Router" to test navigation performance');
+            addResult('info', '4. Click "Performance Test" for comprehensive analysis');
+        }, 1000);
+    </script>
+</body>
+</html>

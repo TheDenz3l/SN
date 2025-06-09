@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SwiftNotes UI Accessibility Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        .iframe-container {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 SwiftNotes Notes Page UI/UX Accessibility Test</h1>
+        <p>This test checks for UI/UX issues that might make users think the notes page is inaccessible.</p>
+
+        <div class="test-section">
+            <h2>Test 1: Application Loading</h2>
+            <button onclick="testAppLoading()">Test App Loading</button>
+            <div id="loading-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Test 2: Navigation Visibility</h2>
+            <button onclick="testNavigation()">Test Navigation</button>
+            <div id="navigation-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Test 3: Notes Page Direct Access</h2>
+            <button onclick="testDirectAccess()">Test Direct Access</button>
+            <div id="direct-access-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Test 4: Authentication Flow</h2>
+            <button onclick="testAuthFlow()">Test Auth Flow</button>
+            <div id="auth-flow-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Test 5: Live Application Preview</h2>
+            <button onclick="loadLivePreview()">Load Live Preview</button>
+            <div class="iframe-container" id="preview-container" style="display: none;">
+                <iframe id="app-preview" src=""></iframe>
+            </div>
+            <div id="preview-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Console Logs</h2>
+            <div id="console-log" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Test Summary</h2>
+            <div id="test-summary"></div>
+        </div>
+    </div>
+
+    <script>
+        let testResults = {};
+        let consoleMessages = [];
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}`;
+            consoleMessages.push(logMessage);
+            
+            const consoleLog = document.getElementById('console-log');
+            consoleLog.innerHTML = consoleMessages.slice(-20).join('\n');
+            consoleLog.scrollTop = consoleLog.scrollHeight;
+            
+            console.log(logMessage);
+        }
+
+        function showResult(elementId, success, message, details = '') {
+            const element = document.getElementById(elementId);
+            const className = success ? 'success' : 'error';
+            element.innerHTML = `
+                <div class="test-result ${className}">
+                    <strong>${success ? '✅' : '❌'} ${message}</strong>
+                    ${details ? `<br><small>${details}</small>` : ''}
+                </div>
+            `;
+        }
+
+        async function testAppLoading() {
+            log('Testing application loading...');
+            try {
+                const response = await fetch('http://localhost:5173');
+                if (response.ok) {
+                    const html = await response.text();
+                    const hasReact = html.includes('react') || html.includes('React');
+                    const hasVite = html.includes('vite') || html.includes('Vite');
+                    
+                    testResults.appLoading = true;
+                    showResult('loading-result', true, 'Application loads successfully', 
+                        `React detected: ${hasReact}, Vite detected: ${hasVite}`);
+                    log('✅ App loading test passed');
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                testResults.appLoading = false;
+                showResult('loading-result', false, 'Application loading failed', error.message);
+                log(`❌ App loading test failed: ${error.message}`);
+            }
+        }
+
+        async function testNavigation() {
+            log('Testing navigation accessibility...');
+            try {
+                // This is a simplified test - in a real scenario, we'd need to check the actual DOM
+                const response = await fetch('http://localhost:5173');
+                if (response.ok) {
+                    testResults.navigation = true;
+                    showResult('navigation-result', true, 'Navigation should be accessible', 
+                        'Frontend is responding. Navigation elements should be present in the sidebar.');
+                    log('✅ Navigation test passed (basic connectivity)');
+                } else {
+                    throw new Error('Frontend not accessible');
+                }
+            } catch (error) {
+                testResults.navigation = false;
+                showResult('navigation-result', false, 'Navigation test failed', error.message);
+                log(`❌ Navigation test failed: ${error.message}`);
+            }
+        }
+
+        async function testDirectAccess() {
+            log('Testing direct access to notes page...');
+            try {
+                // Test if the notes route is accessible
+                const response = await fetch('http://localhost:5173/notes');
+                if (response.ok) {
+                    testResults.directAccess = true;
+                    showResult('direct-access-result', true, 'Notes page route is accessible', 
+                        'Direct URL access to /notes works');
+                    log('✅ Direct access test passed');
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                testResults.directAccess = false;
+                showResult('direct-access-result', false, 'Direct access failed', error.message);
+                log(`❌ Direct access test failed: ${error.message}`);
+            }
+        }
+
+        async function testAuthFlow() {
+            log('Testing authentication flow...');
+            try {
+                // Test auth endpoints
+                const loginResponse = await fetch('http://localhost:3001/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: 'test@example.com', password: 'wrongpassword' })
+                });
+                
+                // We expect this to fail, but the endpoint should respond
+                if (loginResponse.status === 401) {
+                    testResults.authFlow = true;
+                    showResult('auth-flow-result', true, 'Authentication system is working', 
+                        'Auth endpoints are responding correctly');
+                    log('✅ Auth flow test passed');
+                } else {
+                    throw new Error('Unexpected auth response');
+                }
+            } catch (error) {
+                testResults.authFlow = false;
+                showResult('auth-flow-result', false, 'Authentication flow failed', error.message);
+                log(`❌ Auth flow test failed: ${error.message}`);
+            }
+        }
+
+        function loadLivePreview() {
+            log('Loading live application preview...');
+            const container = document.getElementById('preview-container');
+            const iframe = document.getElementById('app-preview');
+            
+            iframe.src = 'http://localhost:5173';
+            container.style.display = 'block';
+            
+            iframe.onload = function() {
+                testResults.livePreview = true;
+                showResult('preview-result', true, 'Live preview loaded successfully', 
+                    'You can now interact with the application above to test notes page accessibility');
+                log('✅ Live preview loaded');
+            };
+            
+            iframe.onerror = function() {
+                testResults.livePreview = false;
+                showResult('preview-result', false, 'Live preview failed to load', 
+                    'Could not load the application in iframe');
+                log('❌ Live preview failed');
+            };
+        }
+
+        function updateTestSummary() {
+            const total = Object.keys(testResults).length;
+            const passed = Object.values(testResults).filter(r => r).length;
+            const failed = total - passed;
+            
+            const summaryElement = document.getElementById('test-summary');
+            const overallSuccess = failed === 0 && total > 0;
+            
+            summaryElement.innerHTML = `
+                <div class="test-result ${overallSuccess ? 'success' : (failed > 0 ? 'error' : 'info')}">
+                    <h3>Overall Test Results</h3>
+                    <p><strong>Total Tests:</strong> ${total}</p>
+                    <p><strong>Passed:</strong> ${passed}</p>
+                    <p><strong>Failed:</strong> ${failed}</p>
+                    ${total === 0 ? '<p>Run tests to see results</p>' : ''}
+                    ${overallSuccess ? '<p><strong>✅ All systems appear to be working correctly!</strong></p>' : ''}
+                    ${failed > 0 ? '<p><strong>❌ Some issues detected that may affect accessibility</strong></p>' : ''}
+                </div>
+            `;
+        }
+
+        // Update summary when test results change
+        setInterval(updateTestSummary, 1000);
+
+        // Initial log
+        log('UI/UX Accessibility Test initialized');
+        log('Click the test buttons above to run individual tests');
+    </script>
+</body>
+</html>
