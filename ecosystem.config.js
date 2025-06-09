@@ -29,13 +29,13 @@ module.exports = {
         PORT: 3001
       },
       
-      // Process management
+      // Process management - Optimized for stability
       autorestart: true,
-      max_restarts: 5,
-      min_uptime: '30s',
-      max_memory_restart: '500M',
-      restart_delay: 5000,
-      exp_backoff_restart_delay: 100,
+      max_restarts: 3,
+      min_uptime: '60s',
+      max_memory_restart: '750M',
+      restart_delay: 10000,
+      exp_backoff_restart_delay: 1000,
       
       // Logging
       log_file: './logs/backend-combined.log',
@@ -44,12 +44,12 @@ module.exports = {
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       merge_logs: true,
       
-      // Advanced options
-      kill_timeout: 10000,
-      listen_timeout: 15000,
+      // Advanced options - Improved graceful shutdown
+      kill_timeout: 30000,
+      listen_timeout: 30000,
       shutdown_with_message: true,
-      wait_ready: false,
-      force: true,
+      wait_ready: true,
+      force: false,
       
       // Health monitoring
       health_check_grace_period: 3000,
@@ -76,12 +76,12 @@ module.exports = {
         NODE_ENV: 'production'
       },
       
-      // Process management
+      // Process management - Optimized for Vite dev server
       autorestart: true,
-      max_restarts: 10,
-      min_uptime: '10s',
-      max_memory_restart: '1G',
-      restart_delay: 2000,
+      max_restarts: 5,
+      min_uptime: '30s',
+      max_memory_restart: '1500M',
+      restart_delay: 15000,
       
       // Logging
       log_file: './logs/frontend-combined.log',
@@ -90,11 +90,11 @@ module.exports = {
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       merge_logs: true,
       
-      // Advanced options
-      kill_timeout: 5000,
-      listen_timeout: 10000,
+      // Advanced options - Improved for Vite stability
+      kill_timeout: 45000,
+      listen_timeout: 45000,
       shutdown_with_message: true,
-      wait_ready: false,
+      wait_ready: true,
       
       // Health monitoring
       health_check_grace_period: 5000,
