@@ -10,24 +10,27 @@ import { useAuthStore } from './stores/authStore';
 // Import components
 import ErrorBoundary from './ErrorBoundary';
 
-// Import pages
+// Import pages - NEW INTUITIVE VERSIONS
 import LandingPage from './pages/LandingPage';
-import DashboardPage from './pages/DashboardPage';
-import SetupPage from './pages/SetupPage';
-import ProfilePage from './pages/ProfilePage';
-import NotesHistoryPage from './pages/NotesHistory';
+import IntuitiveDashboardPage from './pages/IntuitiveDashboardPage';
+import IntuitiveSetupPage from './pages/IntuitiveSetupPage';
+import IntuitiveProfilePage from './pages/IntuitiveProfilePage';
+import IntuitiveNotesHistoryPage from './pages/IntuitiveNotesHistoryPage';
 import TestPage from './TestPage';
 
 // Import auth pages
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 
-// Import layouts
-import Layout from './components/layout/Layout';
+// Import layouts - NEW INTUITIVE VERSIONS
+import IntuitiveLayout from './components/layout/IntuitiveLayout';
 import AuthLayout from './components/layout/AuthLayout';
 
-// Re-enabling NoteGenerationPage without WritingStyleConfidence
-import NoteGenerationPage from './pages/NoteGenerationPage';
+// Import advanced providers
+import { AnimationProvider } from './components/advanced/AnimationProvider';
+
+// Re-enabling NoteGenerationPage - NEW INTUITIVE VERSION
+import IntuitiveNoteGenerationPage from './pages/IntuitiveNoteGenerationPage';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -116,9 +119,10 @@ function App() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <Router>
-          <div className="min-h-screen bg-gray-50">
-            <Suspense fallback={<LoadingSpinner />}>
+        <AnimationProvider>
+          <Router>
+            <div className="min-h-screen bg-gray-50">
+              <Suspense fallback={<LoadingSpinner />}>
               <Routes>
             {/* Public Routes */}
             <Route path="/" element={<LandingPage />} />
@@ -141,44 +145,44 @@ function App() {
               </PublicRoute>
             } />
 
-            {/* Protected Routes */}
+            {/* Protected Routes - NEW INTUITIVE VERSIONS */}
             <Route path="/dashboard" element={
               <ProtectedRoute>
-                <Layout>
-                  <DashboardPage />
-                </Layout>
+                <IntuitiveLayout>
+                  <IntuitiveDashboardPage />
+                </IntuitiveLayout>
               </ProtectedRoute>
             } />
 
             <Route path="/setup" element={
               <ProtectedRoute>
-                <Layout>
-                  <SetupPage />
-                </Layout>
+                <IntuitiveLayout>
+                  <IntuitiveSetupPage />
+                </IntuitiveLayout>
               </ProtectedRoute>
             } />
 
             <Route path="/generate" element={
               <ProtectedRoute>
-                <Layout>
-                  <NoteGenerationPage />
-                </Layout>
+                <IntuitiveLayout>
+                  <IntuitiveNoteGenerationPage />
+                </IntuitiveLayout>
               </ProtectedRoute>
             } />
 
             <Route path="/notes" element={
               <ProtectedRoute>
-                <Layout>
-                  <NotesHistoryPage />
-                </Layout>
+                <IntuitiveLayout>
+                  <IntuitiveNotesHistoryPage />
+                </IntuitiveLayout>
               </ProtectedRoute>
             } />
 
             <Route path="/profile" element={
               <ProtectedRoute>
-                <Layout>
-                  <ProfilePage />
-                </Layout>
+                <IntuitiveLayout>
+                  <IntuitiveProfilePage />
+                </IntuitiveLayout>
               </ProtectedRoute>
             } />
 
@@ -216,6 +220,7 @@ function App() {
             }}
           />
         </Router>
+        </AnimationProvider>
 
         {/* React Query Devtools (only in development) */}
         {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}

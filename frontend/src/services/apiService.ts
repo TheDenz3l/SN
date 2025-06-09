@@ -232,6 +232,28 @@ export const userAPI = {
     });
     return handleResponse(response);
   },
+
+  updatePassword: async (currentPassword: string, newPassword: string) => {
+    const response = await fetch(`${API_BASE_URL}/user/change-password`, {
+      method: 'PUT',
+      headers: createHeaders(true),
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    return handleResponse(response);
+  },
+
+  updateDefaultGenerationSettings: async (settings: {
+    defaultToneLevel?: number;
+    defaultDetailLevel?: string;
+    useTimePatterns?: boolean;
+  }) => {
+    const response = await fetch(`${API_BASE_URL}/user/preferences`, {
+      method: 'PUT',
+      headers: createHeaders(true),
+      body: JSON.stringify(settings),
+    });
+    return handleResponse(response);
+  },
 };
 
 // Notes API endpoints
