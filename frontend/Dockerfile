@@ -35,9 +35,9 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
-# Create nginx user
-RUN addgroup -g 1001 -S nginx && \
-    adduser -S nginx -u 1001 -G nginx
+# Modify existing nginx user to use UID/GID 1001 for security consistency
+RUN groupmod -g 1001 nginx && \
+    usermod -u 1001 nginx
 
 # Set ownership
 RUN chown -R nginx:nginx /usr/share/nginx/html && \

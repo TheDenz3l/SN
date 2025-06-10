@@ -21,7 +21,7 @@ RUN apk add --no-cache dumb-init
 
 # Create app user for security
 RUN addgroup -g 1001 -S nodejs && \
-    adduser -S swiftnotes -u 1001
+    adduser -S swiftnotes -u 1001 -G nodejs
 
 # Set working directory
 WORKDIR /app
