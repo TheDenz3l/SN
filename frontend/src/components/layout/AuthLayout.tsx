@@ -1,6 +1,5 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { DocumentTextIcon } from '@heroicons/react/24/outline';
 
 interface AuthLayoutProps {
   children: React.ReactNode;

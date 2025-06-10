@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   HomeIcon,
-  DocumentTextIcon,
   CogIcon,
   UserIcon,
   PlusIcon,

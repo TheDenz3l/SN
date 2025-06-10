@@ -55,7 +55,7 @@ export const checkDatabaseStatus = async (): Promise<DatabaseStatus> => {
           error: 'Backend server not responding'
         };
       }
-    } catch (error) {
+    } catch (_error) {
       return {
         isInitialized: false,
         tablesExist: false,
@@ -119,7 +119,7 @@ export const checkDatabaseStatus = async (): Promise<DatabaseStatus> => {
           allTablesExist = false;
           tableErrors.push(`${table.name} table may not exist`);
         }
-      } catch (error) {
+      } catch (_error) {
         allTablesExist = false;
         tableErrors.push(`Failed to test ${table.name} table`);
       }
@@ -167,7 +167,7 @@ export const initializeDatabase = async (): Promise<{ success: boolean; error?: 
           error: 'Backend server not responding'
         };
       }
-    } catch (error) {
+    } catch (_error) {
       return {
         success: false,
         error: 'Backend server not running. Please start the backend server.'

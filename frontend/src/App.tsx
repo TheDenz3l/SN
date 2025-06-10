@@ -50,9 +50,9 @@ const queryClient = new QueryClient({
 
 // Protected Route Component with enhanced error handling and loading states
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  try {
-    const { isAuthenticated, isLoading } = useAuthStore();
+  const { isAuthenticated, isLoading } = useAuthStore();
 
+  try {
     // Show loading spinner while auth is being determined
     if (isLoading) {
       return <LoadingSpinner />;
@@ -71,9 +71,9 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 // Public Route Component with enhanced error handling and loading states
 const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  try {
-    const { isAuthenticated, isLoading } = useAuthStore();
+  const { isAuthenticated, isLoading } = useAuthStore();
 
+  try {
     // Show loading spinner while auth is being determined
     if (isLoading) {
       return <LoadingSpinner />;

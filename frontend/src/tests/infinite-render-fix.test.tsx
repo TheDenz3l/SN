@@ -8,6 +8,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import IntuitiveNoteGenerationPage from '../pages/IntuitiveNoteGenerationPage';
 import EnhancedNoteSection from '../components/EnhancedNoteSection';
+import { useAuthStore } from '../stores/authStore';
 
 // Mock the auth store
 const mockUser = {
@@ -163,7 +164,7 @@ describe('Infinite Re-render Fix', () => {
     mockOnSettingsChange.mockClear();
 
     // Simulate user preference change by re-rendering with updated mock
-    vi.mocked(require('../stores/authStore').useAuthStore).mockReturnValue({
+    vi.mocked(useAuthStore).mockReturnValue({
       user: {
         ...mockUser,
         preferences: {

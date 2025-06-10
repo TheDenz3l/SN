@@ -1,9 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { 
-  DocumentTextIcon, 
-  SparklesIcon, 
-  ClockIcon, 
+import {
+  SparklesIcon,
+  ClockIcon,
   ShieldCheckIcon,
   ArrowRightIcon,
   CheckIcon
