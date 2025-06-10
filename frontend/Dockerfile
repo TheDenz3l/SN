@@ -35,18 +35,18 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
-# Create or modify nginx user to use UID/GID 1001 for security consistency
-RUN (getent group nginx && groupmod -g 1001 nginx) || addgroup -g 1001 -S nginx && \
-    (id nginx && usermod -u 1001 nginx) || adduser -S nginx -u 1001 -G nginx
+# Create app user for security (avoiding conflicts with existing nginx user)
+RUN addgroup -g 1001 -S appgroup && \
+    adduser -S appuser -u 1001 -G appgroup
 
 # Set ownership
-RUN chown -R nginx:nginx /usr/share/nginx/html && \
-    chown -R nginx:nginx /var/cache/nginx && \
-    chown -R nginx:nginx /var/log/nginx && \
-    chown -R nginx:nginx /etc/nginx/conf.d
+RUN chown -R appuser:appgroup /usr/share/nginx/html && \
+    chown -R appuser:appgroup /var/cache/nginx && \
+    chown -R appuser:appgroup /var/log/nginx && \
+    chown -R appuser:appgroup /etc/nginx/conf.d
 
 # Switch to non-root user
-USER nginx
+USER appuser
 
 # Expose port
 EXPOSE 80
