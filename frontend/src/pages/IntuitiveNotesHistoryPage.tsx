@@ -67,10 +67,7 @@ const IntuitiveNotesHistoryPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
-  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
-  const [showNoteModal, setShowNoteModal] = useState(false);
   const [usageStats, setUsageStats] = useState<UsageStats | null>(null);
-  const [loadingNoteDetails, setLoadingNoteDetails] = useState(false);
 
   // Filter and sorting states
   const [noteType, setNoteType] = useState('');
@@ -500,23 +497,9 @@ const IntuitiveNotesHistoryPage: React.FC = () => {
                           <IntuitiveButton
                             variant="ghost"
                             size="sm"
-                            onClick={async () => {
-                              try {
-                                setLoadingNoteDetails(true);
-                                if (note.sections && note.sections.length > 0) {
-                                  setSelectedNote(note);
-                                  setShowNoteModal(true);
-                                } else {
-                                  const completeNote = await notesAPI.getNote(note.id);
-                                  setSelectedNote(completeNote?.note || note);
-                                  setShowNoteModal(true);
-                                }
-                              } catch (error) {
-                                console.error('Error loading note details:', error);
-                                toast.error('Failed to load note details');
-                              } finally {
-                                setLoadingNoteDetails(false);
-                              }
+                            onClick={() => {
+                              // TODO: Implement note viewing modal
+                              toast('Note viewing feature coming soon!');
                             }}
                             icon={<EyeIcon />}
                             tooltip="View note"
@@ -580,23 +563,9 @@ const IntuitiveNotesHistoryPage: React.FC = () => {
                           <IntuitiveButton
                             variant="outline"
                             size="sm"
-                            onClick={async () => {
-                              try {
-                                setLoadingNoteDetails(true);
-                                if (note.sections && note.sections.length > 0) {
-                                  setSelectedNote(note);
-                                  setShowNoteModal(true);
-                                } else {
-                                  const completeNote = await notesAPI.getNote(note.id);
-                                  setSelectedNote(completeNote?.note || note);
-                                  setShowNoteModal(true);
-                                }
-                              } catch (error) {
-                                console.error('Error loading note details:', error);
-                                toast.error('Failed to load note details');
-                              } finally {
-                                setLoadingNoteDetails(false);
-                              }
+                            onClick={() => {
+                              // TODO: Implement note viewing modal
+                              toast('Note viewing feature coming soon!');
                             }}
                             icon={<EyeIcon />}
                           >

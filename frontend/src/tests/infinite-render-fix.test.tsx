@@ -8,7 +8,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import IntuitiveNoteGenerationPage from '../pages/IntuitiveNoteGenerationPage';
 import EnhancedNoteSection from '../components/EnhancedNoteSection';
-import { useAuthStore } from '../stores/authStore';
+
 
 // Mock the auth store
 const mockUser = {

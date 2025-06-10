@@ -756,7 +756,7 @@ const WritingStyleSettings: React.FC<{
             defaultDetailLevel: savingDetailLevel,
             useTimePatterns: savingTimePatterns,
           }
-        }).catch(err => {
+        }).catch((err: any) => {
           console.warn('User state update failed, but API save succeeded:', err);
         });
 
@@ -1360,7 +1360,7 @@ const PrivacySettings: React.FC<{
   signOut: () => void;
   isLoading: boolean;
   setIsLoading: (loading: boolean) => void;
-}> = ({ user, signOut, isLoading, setIsLoading }) => {
+}> = ({ user: _user, signOut: _signOut, isLoading, setIsLoading: _setIsLoading }) => {
   const handleExportData = async () => {
     try {
       toast('Data export feature coming soon');

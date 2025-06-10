@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import {
   LineChart,
   Line,
@@ -16,7 +16,7 @@ import {
   Area,
   AreaChart,
 } from 'recharts';
-import { clsx } from 'clsx';
+
 import IntuitiveCard from '../intuitive/IntuitiveCard';
 import { useEnhancedAnimation } from './AnimationProvider';
 
@@ -354,7 +354,7 @@ export const EnhancedPieChart: React.FC<ChartProps & {
             dataKey="value"
             {...animationProps}
           >
-            {data.map((entry, index) => (
+            {data.map((_, index) => (
               <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
             ))}
           </Pie>

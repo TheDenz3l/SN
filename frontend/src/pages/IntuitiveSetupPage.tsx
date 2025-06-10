@@ -20,7 +20,6 @@ import {
   ArrowLeftIcon,
   CheckIcon,
   ClockIcon,
-  UserIcon,
   AcademicCapIcon
 } from '@heroicons/react/24/outline';
 
@@ -28,14 +27,7 @@ import {
 import IntuitiveCard, { ActionCard } from '../components/intuitive/IntuitiveCard';
 import IntuitiveButton from '../components/intuitive/IntuitiveButton';
 
-// Local interface definition to avoid import issues
-interface StyleAnalysis {
-  quality: 'excellent' | 'good' | 'fair' | 'needs_improvement';
-  score: number;
-  suggestions: string[];
-  strengths: string[];
-  weaknesses: string[];
-}
+
 
 interface SetupData {
   writingStyle: string;
@@ -60,9 +52,8 @@ const IntuitiveSetupPage: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isDatabaseSetupLoading, setIsDatabaseSetupLoading] = useState(false);
-  const [styleAnalysis, setStyleAnalysis] = useState<StyleAnalysis | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [databaseSetupComplete, setDatabaseSetupComplete] = useState(false);
+
+
   const navigate = useNavigate();
   const { updateUser } = useAuthStore();
 
@@ -129,7 +120,6 @@ const IntuitiveSetupPage: React.FC = () => {
     try {
       const status = await checkDatabaseStatus();
       if (status.tablesExist && status.userProfileExists) {
-        setDatabaseSetupComplete(true);
         setCurrentStep(1); // Skip to writing style step
       }
     } catch (error) {
@@ -142,7 +132,6 @@ const IntuitiveSetupPage: React.FC = () => {
     try {
       const result = await initializeDatabase();
       if (result.success) {
-        setDatabaseSetupComplete(true);
         toast.success('Database initialized successfully!');
         setCurrentStep(1);
       } else {
